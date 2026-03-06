@@ -79,3 +79,49 @@ def test_add_with_specific_agent(tmp_path: Path) -> None:
 
         result = runner.invoke(test_app, ["acme/tools", "--agent", "cursor"])
         assert result.exit_code == 0, result.output
+
+
+def test_e2e_with_local_repo(tmp_path: Path, sample_skill_repo: Path) -> None:
+    """Full flow: detect content, create canonical storage, write lock file."""
+    from openforge.plugins import detect_content
+    from openforge.installer import create_canonical_storage
+    from openforge.lock import add_lock_entry, read_lock
+    from openforge.types import LockEntry, SourceType
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    content = detect_content(sample_skill_repo)
+    assert len(content.skills) == 3
+
+    for skill in content.skills:
+        source_dir = sample_skill_repo / "skills" / skill.name
+        create_canonical_storage(
+            source_dir=source_dir,
+            project_dir=project_dir,
+            name=skill.name,
+            content_type=content.content_type,
+            is_global=False,
+        )
+
+    # Verify canonical storage
+    for name in ["lint", "format", "test"]:
+        assert (project_dir / ".agents" / "skills" / name / "SKILL.md").exists()
+
+    # Write and verify lock file
+    lock_path = project_dir / ".openforge-lock.json"
+    for skill in content.skills:
+        add_lock_entry(lock_path, skill.name, LockEntry(
+            type=content.content_type,
+            source="acme/tools",
+            source_type=SourceType.GITHUB,
+            git_url="https://github.com/acme/tools",
+            git_sha="abc123",
+            skills=[skill.name],
+            agents_installed=[],
+            installed_at="2026-03-06T12:00:00Z",
+            updated_at="2026-03-06T12:00:00Z",
+        ))
+
+    lock = read_lock(lock_path)
+    assert len(lock.entries) == 3
