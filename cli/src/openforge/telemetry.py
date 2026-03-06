@@ -13,6 +13,9 @@ def send_event(event: str, data: dict[str, object]) -> None:
     if not config.telemetry_enabled:
         return
 
+    if not config.forge_url.startswith("https://"):
+        return
+
     payload: dict[str, object] = {"event": event, **data}
 
     def _send() -> None:
@@ -23,7 +26,10 @@ def send_event(event: str, data: dict[str, object]) -> None:
                 timeout=5.0,
             )
         except Exception:  # noqa: BLE001
-            pass  # Fire and forget
+            # Fire-and-forget: silently ignore all telemetry errors.
+            # This includes network, TLS, timeout, and config errors.
+            # Telemetry must never block or crash the CLI.
+            pass
 
     thread = threading.Thread(target=_send, daemon=True)
     thread.start()

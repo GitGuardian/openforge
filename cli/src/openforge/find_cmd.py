@@ -37,7 +37,7 @@ def find_command(
                 matches[name] = entry
                 break
 
-    send_event("find", {"query": query, "results_count": len(matches)})
+    send_event("find", {"results_count": len(matches)})
 
     console = Console()
 

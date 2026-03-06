@@ -12,6 +12,7 @@ else:
     import tomli as tomllib  # pyright: ignore[reportMissingImports]
 
 import tomli_w
+from platformdirs import user_config_dir
 
 # ---------------------------------------------------------------------------
 # CI environment variables that signal a CI environment (disables telemetry)
@@ -58,7 +59,7 @@ _DEFAULTS: dict[str, str] = {
 
 
 def _default_user_config_dir() -> Path:
-    return Path.home() / ".config" / "openforge"
+    return Path(user_config_dir("openforge"))
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -212,6 +213,10 @@ def set_config_value(
 ) -> None:
     """Write a config value to the user-level config TOML file."""
 
+    if key not in _DEFAULTS:
+        msg = f"Unknown config key: {key!r}. Valid keys: {', '.join(sorted(_DEFAULTS))}"
+        raise ValueError(msg)
+
     user_dir = user_config_dir or _default_user_config_dir()
     config_path = user_dir / "config.toml"
 
@@ -221,9 +226,10 @@ def set_config_value(
     # Set the value
     _set_nested(data, key, value)
 
-    # Ensure directory exists
-    user_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure directory exists with restrictive permissions
+    os.makedirs(user_dir, mode=0o700, exist_ok=True)
 
-    # Write back
+    # Write back with restrictive permissions
     with open(config_path, "wb") as f:
         tomli_w.dump(data, f)
+    os.chmod(config_path, 0o600)

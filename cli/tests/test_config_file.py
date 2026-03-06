@@ -82,3 +82,11 @@ def test_set_config_value_creates_dir(tmp_path: Path) -> None:
     set_config_value("forge.url", "https://new.com", user_config_dir=user_dir)
     content = (user_dir / "config.toml").read_text()
     assert "https://new.com" in content
+
+
+def test_set_config_value_rejects_unknown_key(tmp_path: Path) -> None:
+    """set_config_value must reject keys not in _DEFAULTS."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    with pytest.raises(ValueError, match="Unknown config key"):
+        set_config_value("bogus.key", "evil", user_config_dir=user_dir)
