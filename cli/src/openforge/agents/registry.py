@@ -71,16 +71,21 @@ _cursor = AgentConfig(
     capabilities=frozenset({"skills", "mcp", "commands"}),
 )
 
+_copilot = AgentConfig(
+    name="copilot",
+    display_name="GitHub Copilot",
+    skills_dir=".github/copilot/skills",
+    global_skills_dir="~/.github/copilot/skills",
+    detect=lambda: Path(".github/copilot").is_dir()
+    or Path.home().joinpath(".github/copilot").is_dir(),
+)
+
 # ---------------------------------------------------------------------------
-# Skills-only agents (49)
+# Skills-only agents (48)
 # ---------------------------------------------------------------------------
 
 _SIMPLE_AGENTS: list[AgentConfig] = [
     _make_simple_agent("windsurf"),
-    _make_simple_agent(
-        "copilot",
-        display_name="GitHub Copilot",
-    ),
     _make_simple_agent("gemini-cli", display_name="Gemini CLI", detect_command="gemini"),
     _make_simple_agent("codex"),
     _make_simple_agent("opencode", display_name="OpenCode"),
@@ -134,32 +139,37 @@ _SIMPLE_AGENTS: list[AgentConfig] = [
 # Public registry
 # ---------------------------------------------------------------------------
 
-AGENTS: list[AgentConfig] = [_claude_code, _cursor, *_SIMPLE_AGENTS]
+AGENTS: list[AgentConfig] = [_claude_code, _cursor, _copilot, *_SIMPLE_AGENTS]
 
-# Copilot uses a non-standard skills_dir; patch it after construction.
-# The helper builds `.copilot/skills` but the real path is `.github/copilot/skills`.
-_copilot_idx = next(i for i, a in enumerate(AGENTS) if a.name == "copilot")
-AGENTS[_copilot_idx] = AgentConfig(
-    name="copilot",
-    display_name="GitHub Copilot",
-    skills_dir=".github/copilot/skills",
-    global_skills_dir="~/.github/copilot/skills",
-    detect=lambda: Path(".github/copilot").is_dir()
-    or Path.home().joinpath(".github/copilot").is_dir(),
-)
+
+_AGENTS_BY_NAME: dict[str, AgentConfig] = {a.name: a for a in AGENTS}
 
 
 def get_agent(name: str) -> AgentConfig | None:
     """Look up an agent by name, returning ``None`` if not found."""
-    for agent in AGENTS:
-        if agent.name == name:
-            return agent
-    return None
+    return _AGENTS_BY_NAME.get(name)
+
+
+_cached_agents: list[AgentConfig] | None = None
 
 
 def detect_agents(
     agents: Sequence[AgentConfig] | None = None,
 ) -> list[AgentConfig]:
-    """Return agents whose ``detect`` callable returns ``True``."""
-    candidates = agents if agents is not None else AGENTS
-    return [a for a in candidates if a.detect()]
+    """Return agents whose ``detect`` callable returns ``True``.
+
+    Results are cached when using the default agent list.
+    """
+    global _cached_agents  # noqa: PLW0603
+    if agents is None:
+        if _cached_agents is not None:
+            return _cached_agents
+        _cached_agents = [a for a in AGENTS if a.detect()]
+        return _cached_agents
+    return [a for a in agents if a.detect()]
+
+
+def clear_agent_cache() -> None:
+    """Reset the ``detect_agents`` cache. Useful for testing."""
+    global _cached_agents  # noqa: PLW0603
+    _cached_agents = None

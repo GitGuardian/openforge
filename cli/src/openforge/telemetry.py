@@ -2,14 +2,21 @@ from __future__ import annotations
 
 import threading
 
-import httpx
-
 from openforge.config_file import Config, load_config
+
+_cached_config: Config | None = None
+
+
+def _get_config() -> Config:
+    global _cached_config  # noqa: PLW0603
+    if _cached_config is None:
+        _cached_config = load_config()
+    return _cached_config
 
 
 def send_event(event: str, data: dict[str, object]) -> None:
     """Fire-and-forget telemetry event. Never raises, never blocks."""
-    config: Config = load_config()
+    config: Config = _get_config()
     if not config.telemetry_enabled:
         return
 
@@ -20,6 +27,8 @@ def send_event(event: str, data: dict[str, object]) -> None:
 
     def _send() -> None:
         try:
+            import httpx
+
             httpx.post(
                 f"{config.forge_url}/api/telemetry",
                 json=payload,

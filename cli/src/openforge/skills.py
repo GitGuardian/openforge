@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
-import yaml
-
 from openforge.types import SkillInfo
 from openforge.validation import validate_name, validate_path_containment
 
@@ -24,6 +22,8 @@ def parse_skill_md(path: Path) -> SkillInfo:
     if text.startswith("---\n"):
         end = text.find("\n---\n", 4)
         if end != -1:
+            import yaml
+
             frontmatter_raw = text[4:end]
             data: dict[str, object] = yaml.safe_load(frontmatter_raw) or {}
             name = str(data.get("name", ""))
@@ -99,6 +99,10 @@ def find_skills_in_dir(root: Path) -> list[SkillInfo]:
 
     # 5. Recursive fallback
     for skill_md in sorted(root.rglob("SKILL.md")):
+        # Limit search depth (SKILL.md at depth 4 means 3 dirs deep)
+        rel = skill_md.relative_to(root)
+        if len(rel.parts) > 4:
+            continue
         # Skip excluded directories
         if _RGLOB_EXCLUDED_DIRS.intersection(skill_md.parts):
             continue

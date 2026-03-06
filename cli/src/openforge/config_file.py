@@ -11,7 +11,6 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # pyright: ignore[reportMissingImports]
 
-import tomli_w
 from platformdirs import user_config_dir
 
 # ---------------------------------------------------------------------------
@@ -83,7 +82,7 @@ def _get_nested(data: dict[str, Any], dotted_key: str) -> str | None:
     return str(current)  # pyright: ignore[reportUnknownArgumentType]
 
 
-def _set_nested(data: dict[str, Any], dotted_key: str, value: str) -> None:
+def _set_nested(data: dict[str, Any], dotted_key: str, value: object) -> None:
     """Set a value in a nested dict using a dotted key."""
     keys = dotted_key.split(".")
     current = data
@@ -223,13 +222,27 @@ def set_config_value(
     # Read existing data
     data = _read_toml(config_path)
 
+    # Coerce string values to proper types for known keys
+    typed_value: object
+    if key == "telemetry.enabled":
+        if value.lower() in ("true", "1", "yes"):
+            typed_value = True
+        elif value.lower() in ("false", "0", "no"):
+            typed_value = False
+        else:
+            typed_value = value
+    else:
+        typed_value = value
+
     # Set the value
-    _set_nested(data, key, value)
+    _set_nested(data, key, typed_value)
 
     # Ensure directory exists with restrictive permissions
     os.makedirs(user_dir, mode=0o700, exist_ok=True)
 
     # Write back with restrictive permissions
+    import tomli_w
+
     with open(config_path, "wb") as f:
         tomli_w.dump(data, f)
     os.chmod(config_path, 0o600)

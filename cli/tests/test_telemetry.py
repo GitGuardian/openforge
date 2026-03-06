@@ -14,7 +14,7 @@ def test_telemetry_skips_http_url(tmp_path: Path) -> None:
     insecure_config = Config(forge_url="http://evil.example.com", telemetry_enabled=True)
 
     with (
-        patch("openforge.telemetry.load_config", return_value=insecure_config),
+        patch("openforge.telemetry._get_config", return_value=insecure_config),
         patch("openforge.telemetry.threading.Thread") as mock_thread,
     ):
         send_event("test", {"key": "value"})
@@ -26,7 +26,7 @@ def test_telemetry_sends_with_https_url(tmp_path: Path) -> None:
     secure_config = Config(forge_url="https://forge.example.com", telemetry_enabled=True)
 
     with (
-        patch("openforge.telemetry.load_config", return_value=secure_config),
+        patch("openforge.telemetry._get_config", return_value=secure_config),
         patch("openforge.telemetry.threading.Thread") as mock_thread,
     ):
         send_event("test", {"key": "value"})
