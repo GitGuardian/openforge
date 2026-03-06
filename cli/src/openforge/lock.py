@@ -8,6 +8,15 @@ from typing import Any
 from openforge.types import ContentType, LockEntry, LockFile, SourceType
 
 
+def lock_file_path(project_dir: Path, *, is_global: bool) -> Path:
+    """Return the lock file path for project-local or global installs."""
+    if is_global:
+        from openforge.cli import get_user_config_dir
+
+        return get_user_config_dir() / "lock.json"
+    return project_dir / ".openforge-lock.json"
+
+
 def _entry_to_dict(entry: LockEntry) -> dict[str, Any]:
     """Serialise a LockEntry to a plain dict, converting enums to their values."""
     return {
@@ -16,8 +25,8 @@ def _entry_to_dict(entry: LockEntry) -> dict[str, Any]:
         "source_type": entry.source_type.value,
         "git_url": entry.git_url,
         "git_sha": entry.git_sha,
-        "skills": entry.skills,
-        "agents_installed": entry.agents_installed,
+        "skills": list(entry.skills),
+        "agents_installed": list(entry.agents_installed),
         "installed_at": entry.installed_at,
         "updated_at": entry.updated_at,
     }
@@ -31,8 +40,8 @@ def _dict_to_entry(data: dict[str, Any]) -> LockEntry:
         source_type=SourceType(data["source_type"]),
         git_url=data["git_url"],
         git_sha=data["git_sha"],
-        skills=data["skills"],
-        agents_installed=data["agents_installed"],
+        skills=tuple(data["skills"]),
+        agents_installed=tuple(data["agents_installed"]),
         installed_at=data["installed_at"],
         updated_at=data["updated_at"],
     )

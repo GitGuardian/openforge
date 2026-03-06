@@ -104,6 +104,17 @@ def test_parse_skill_md_name_with_spaces_rejected(tmp_path: Path) -> None:
         parse_skill_md(skill_dir / "SKILL.md")
 
 
+def test_parse_skill_md_no_trailing_newline(tmp_path: Path) -> None:
+    """Frontmatter ending with --- and no trailing newline must still be parsed."""
+    skill_dir = tmp_path / "compact"
+    skill_dir.mkdir()
+    # Note: no trailing newline after closing ---
+    (skill_dir / "SKILL.md").write_text("---\nname: compact\ndescription: No trailing newline\n---")
+    skill = parse_skill_md(skill_dir / "SKILL.md")
+    assert skill.name == "compact"
+    assert skill.description == "No trailing newline"
+
+
 def test_find_skills_rglob_skips_git_dir(tmp_path: Path) -> None:
     """rglob fallback must skip .git directories."""
     git_dir = tmp_path / ".git" / "hooks"

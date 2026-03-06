@@ -14,9 +14,9 @@ from rich.table import Table
 from openforge.agents.adapters import claude as claude_adapter
 from openforge.agents.adapters import cursor as cursor_adapter
 from openforge.agents.registry import detect_agents
-from openforge.cli import get_project_dir, get_user_config_dir
+from openforge.cli import get_project_dir
 from openforge.installer import create_canonical_storage, install_to_all_agents
-from openforge.lock import add_lock_entry
+from openforge.lock import add_lock_entry, lock_file_path
 from openforge.plugins import detect_content
 from openforge.providers.github import GitHubProvider
 from openforge.providers.source_parser import parse_source
@@ -30,13 +30,6 @@ from openforge.types import (
 )
 
 _console = Console()
-
-
-def _lock_file_path(project_dir: Path, is_global: bool) -> Path:
-    """Return the lock file path for project-local or global installs."""
-    if is_global:
-        return get_user_config_dir() / "lock.json"
-    return project_dir / ".openforge-lock.json"
 
 
 def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
@@ -167,9 +160,12 @@ def _install_plugin_capabilities(
     plugin: PluginInfo,
     plugin_dir: Path,
     project_dir: Path,
+    target_agent: str | None = None,
 ) -> None:
     """Dispatch plugin capability installation to the appropriate agent adapters."""
     agents = detect_agents()
+    if target_agent is not None:
+        agents = [a for a in agents if a.name == target_agent]
     for agent_cfg in agents:
         caps = agent_cfg.capabilities
         if agent_cfg.name == "claude-code":
@@ -234,7 +230,7 @@ def add_command(
         detected = detect_content(content_root)
 
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        lock_path = _lock_file_path(project_dir, is_global)
+        lock_path = lock_file_path(project_dir, is_global=is_global)
 
         skills = list(detected.skills)
 
@@ -276,7 +272,7 @@ def add_command(
             installed_agents = install_to_all_agents(
                 skills=skills,
                 project_dir=project_dir,
-                content_type=detected.content_type,
+                content_type=ContentType.SKILL,
                 is_global=is_global,
                 target_agent=agent,
             )
@@ -284,29 +280,29 @@ def add_command(
         # Install plugin capabilities
         if (
             detected.content_type is ContentType.PLUGIN
-            and detected.plugin is not None
+            and detected.plugins
         ):
-            plugin = detected.plugin
-            plugin_dir = content_root
-            create_canonical_storage(
-                source_dir=plugin_dir,
-                project_dir=project_dir,
-                name=plugin.name,
-                content_type=ContentType.PLUGIN,
-                is_global=is_global,
-            )
-            confirmed = _display_capabilities_and_confirm(
-                plugin, plugin_dir, auto_confirm=yes
-            )
-            if confirmed:
-                _install_plugin_capabilities(plugin, plugin_dir, project_dir)
-            else:
-                _console.print(
-                    "[yellow]Skipped plugin capability installation.[/yellow]"
+            for plg in detected.plugins:
+                plugin_dir = content_root
+                create_canonical_storage(
+                    source_dir=plugin_dir,
+                    project_dir=project_dir,
+                    name=plg.name,
+                    content_type=ContentType.PLUGIN,
+                    is_global=is_global,
                 )
+                confirmed = _display_capabilities_and_confirm(
+                    plg, plugin_dir, auto_confirm=yes
+                )
+                if confirmed:
+                    _install_plugin_capabilities(plg, plugin_dir, project_dir, agent)
+                else:
+                    _console.print(
+                        "[yellow]Skipped plugin capability installation.[/yellow]"
+                    )
 
         # Write lock entry
-        skill_names = [s.name for s in skills]
+        skill_names = tuple(s.name for s in skills)
         entry = LockEntry(
             type=detected.content_type,
             source=parsed.shorthand,
@@ -314,7 +310,7 @@ def add_command(
             git_url=parsed.git_url,
             git_sha=git_sha,
             skills=skill_names,
-            agents_installed=installed_agents,
+            agents_installed=tuple(installed_agents),
             installed_at=now,
             updated_at=now,
         )

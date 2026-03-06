@@ -21,6 +21,9 @@ def parse_skill_md(path: Path) -> SkillInfo:
 
     if text.startswith("---\n"):
         end = text.find("\n---\n", 4)
+        if end == -1 and text.endswith("\n---"):
+            # Handle end-of-file without trailing newline
+            end = len(text) - 3
         if end != -1:
             import yaml
 

@@ -119,8 +119,8 @@ def test_e2e_with_local_repo(tmp_path: Path, sample_skill_repo: Path) -> None:
             source_type=SourceType.GITHUB,
             git_url="https://github.com/acme/tools",
             git_sha="abc123",
-            skills=[skill.name],
-            agents_installed=[],
+            skills=(skill.name,),
+            agents_installed=(),
             installed_at="2026-03-06T12:00:00Z",
             updated_at="2026-03-06T12:00:00Z",
         ))
@@ -244,16 +244,18 @@ def _setup_plugin_repo(dest: Path) -> None:
 
 def _make_plugin_detected(has_mcp: bool = True, has_hooks: bool = True, has_commands: bool = True) -> DetectedContent:
     """Return a DetectedContent for a plugin with the specified capabilities."""
+    plugin = PluginInfo(
+        name="danger-plugin",
+        description="A plugin",
+        skills=(SkillInfo(name="helper", path="skills/helper"),),
+        has_mcp=has_mcp,
+        has_commands=has_commands,
+        has_hooks=has_hooks,
+    )
     return DetectedContent(
         content_type=ContentType.PLUGIN,
-        plugin=PluginInfo(
-            name="danger-plugin",
-            description="A plugin",
-            skills=(SkillInfo(name="helper", path="skills/helper"),),
-            has_mcp=has_mcp,
-            has_commands=has_commands,
-            has_hooks=has_hooks,
-        ),
+        plugin=plugin,
+        plugins=(plugin,),
         skills=(SkillInfo(name="helper", path="skills/helper"),),
     )
 
@@ -363,6 +365,46 @@ def test_add_plugin_decline_skips_capabilities_but_installs_skills(tmp_path: Pat
         assert "helper" in result.output
 
 
+def test_add_plugin_agent_filter_applied_to_capabilities(tmp_path: Path) -> None:
+    """When --agent is specified, _install_plugin_capabilities must only target that agent."""
+    from openforge.add import add_command
+
+    test_app = typer.Typer()
+    test_app.command("add")(add_command)
+    runner = CliRunner()
+
+    with patch("openforge.add.GitHubProvider") as MockProvider, \
+         patch("openforge.add.detect_content") as mock_content, \
+         patch("openforge.add.install_to_all_agents", return_value=["cursor"]), \
+         patch("openforge.add._install_plugin_capabilities") as mock_install_caps, \
+         patch("openforge.add.get_project_dir", return_value=tmp_path), \
+         patch("openforge.add.send_event"):
+
+        def fake_fetch(source: Source, dest: Path) -> str:
+            _setup_plugin_repo(dest)
+            return "abc123"
+
+        MockProvider.return_value.fetch.side_effect = fake_fetch
+        MockProvider.return_value.content_root.side_effect = _fake_content_root
+
+        mock_content.return_value = _make_plugin_detected()
+
+        result = runner.invoke(test_app, ["acme/plugin", "--agent", "cursor", "--yes"])
+        assert result.exit_code == 0, result.output
+        # _install_plugin_capabilities must receive the target_agent argument
+        mock_install_caps.assert_called_once()
+        call_kwargs = mock_install_caps.call_args
+        # The function should receive the agent filter
+        assert call_kwargs is not None
+        # Check that target_agent="cursor" was passed
+        if call_kwargs.kwargs:
+            assert call_kwargs.kwargs.get("target_agent") == "cursor"
+        else:
+            # positional args: plugin, plugin_dir, project_dir, target_agent
+            assert len(call_kwargs.args) >= 4
+            assert call_kwargs.args[3] == "cursor"
+
+
 def test_add_plugin_no_capabilities_skips_confirmation(tmp_path: Path) -> None:
     """A plugin with no MCP/hooks/commands does not prompt for confirmation."""
     from openforge.add import add_command
@@ -392,16 +434,18 @@ def test_add_plugin_no_capabilities_skips_confirmation(tmp_path: Path) -> None:
         MockProvider.return_value.fetch.side_effect = fake_fetch
         MockProvider.return_value.content_root.side_effect = _fake_content_root
 
+        safe_plugin = PluginInfo(
+            name="safe-plugin",
+            description="No caps",
+            skills=(SkillInfo(name="helper", path="skills/helper"),),
+            has_mcp=False,
+            has_commands=False,
+            has_hooks=False,
+        )
         mock_content.return_value = DetectedContent(
             content_type=ContentType.PLUGIN,
-            plugin=PluginInfo(
-                name="safe-plugin",
-                description="No caps",
-                skills=(SkillInfo(name="helper", path="skills/helper"),),
-                has_mcp=False,
-                has_commands=False,
-                has_hooks=False,
-            ),
+            plugin=safe_plugin,
+            plugins=(safe_plugin,),
             skills=(SkillInfo(name="helper", path="skills/helper"),),
         )
 

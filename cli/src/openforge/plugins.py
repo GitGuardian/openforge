@@ -65,6 +65,7 @@ def detect_content(root: Path) -> DetectedContent:
         return DetectedContent(
             content_type=ContentType.PLUGIN,
             plugin=plugin,
+            plugins=(plugin,),
             skills=plugin.skills,
         )
 
@@ -75,6 +76,7 @@ def detect_content(root: Path) -> DetectedContent:
         return DetectedContent(
             content_type=ContentType.PLUGIN,
             plugin=plugins[0] if plugins else None,
+            plugins=tuple(plugins),
             skills=all_skills,
         )
 

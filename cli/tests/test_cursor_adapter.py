@@ -52,6 +52,22 @@ def test_cursor_install_mcp_merges_existing(tmp_path: Path) -> None:
     assert "new-server" in data["mcpServers"]
 
 
+def test_cursor_install_mcp_config_missing_source(tmp_path: Path) -> None:
+    """install_mcp_config must not crash when .mcp.json does not exist."""
+    plugin_dir = tmp_path / "plugin"
+    plugin_dir.mkdir()
+    # No .mcp.json created
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    # Should return without error, not raise FileNotFoundError
+    install_mcp_config(plugin_dir=plugin_dir, project_dir=project_dir)
+
+    # No .cursor/mcp.json should be created
+    assert not (project_dir / ".cursor" / "mcp.json").exists()
+
+
 def test_cursor_install_commands(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "plugin"
     commands_dir = plugin_dir / "commands"

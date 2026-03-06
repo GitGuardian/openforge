@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Sequence
 from pathlib import Path
 
 from openforge.agents.base import AgentConfig
@@ -93,7 +94,7 @@ def install_skills_to_agent(
 
 def remove_skills_from_agent(
     agent: AgentConfig,
-    skill_names: list[str],
+    skill_names: Sequence[str],
     project_dir: Path,
     is_global: bool,
 ) -> None:

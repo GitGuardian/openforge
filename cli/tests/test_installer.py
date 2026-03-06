@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -107,6 +108,34 @@ def test_create_canonical_storage_invalid_name_rejected(tmp_path: Path) -> None:
             content_type=ContentType.SKILL,
             is_global=False,
         )
+
+
+def test_install_to_all_agents_with_plugin_content_type(tmp_path: Path) -> None:
+    """Plugin skills must be installed to agents even when content_type is PLUGIN.
+
+    The caller (add.py) must pass ContentType.SKILL so that install_to_all_agents
+    does not early-return.
+    """
+    from openforge.installer import install_to_all_agents
+
+    skill_dir = tmp_path / "project" / ".agents" / "skills" / "helper"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n")
+
+    agent = _make_agent(tmp_path)
+    skills = [SkillInfo(name="helper", path=str(skill_dir))]
+
+    with patch("openforge.installer.detect_agents", return_value=[agent]):
+        installed = install_to_all_agents(
+            skills=skills,
+            project_dir=tmp_path / "project",
+            content_type=ContentType.SKILL,
+            is_global=False,
+        )
+
+    assert installed == ["test-agent"]
+    agent_skill = Path(agent.skills_dir) / "helper"
+    assert agent_skill.is_symlink()
 
 
 def test_create_canonical_storage_preserves_symlinks(tmp_path: Path) -> None:

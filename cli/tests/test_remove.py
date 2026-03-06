@@ -31,8 +31,8 @@ def test_remove_installed_skill(tmp_path: Path) -> None:
         source_type=SourceType.GITHUB,
         git_url="https://github.com/acme/tools",
         git_sha="abc123",
-        skills=["lint"],
-        agents_installed=[],
+        skills=("lint",),
+        agents_installed=(),
         installed_at="2026-03-06T12:00:00Z",
         updated_at="2026-03-06T12:00:00Z",
     )
@@ -66,8 +66,8 @@ def test_remove_cleans_canonical_by_skill_name(tmp_path: Path) -> None:
         source_type=SourceType.GITHUB,
         git_url="https://github.com/vercel-labs/skills",
         git_sha="abc123",
-        skills=["find-skills"],
-        agents_installed=[],
+        skills=("find-skills",),
+        agents_installed=(),
         installed_at="2026-03-06T12:00:00Z",
         updated_at="2026-03-06T12:00:00Z",
     )

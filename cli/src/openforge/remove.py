@@ -8,20 +8,13 @@ from rich.console import Console
 from openforge.agents.adapters import claude as claude_adapter
 from openforge.agents.adapters import cursor as cursor_adapter
 from openforge.agents.registry import get_agent
-from openforge.cli import get_project_dir, get_user_config_dir
+from openforge.cli import get_project_dir
 from openforge.installer import remove_canonical_storage, remove_skills_from_agent
-from openforge.lock import read_lock, remove_lock_entry
+from openforge.lock import lock_file_path, read_lock, remove_lock_entry
 from openforge.telemetry import send_event
 from openforge.types import ContentType, LockEntry
 
 _console = Console()
-
-
-def _lock_file_path(project_dir: Path, is_global: bool) -> Path:
-    """Return the lock file path for project-local or global installs."""
-    if is_global:
-        return get_user_config_dir() / "lock.json"
-    return project_dir / ".openforge-lock.json"
 
 
 def _remove_plugin_capabilities(
@@ -76,7 +69,7 @@ def remove_command(
 ) -> None:
     """Remove an installed plugin or skill."""
     project_dir = get_project_dir()
-    lock_path = _lock_file_path(project_dir, is_global)
+    lock_path = lock_file_path(project_dir, is_global=is_global)
     lock = read_lock(lock_path)
 
     entry = lock.entries.get(name)

@@ -84,6 +84,47 @@ def test_set_config_value_creates_dir(tmp_path: Path) -> None:
     assert "https://new.com" in content
 
 
+def test_set_config_value_boolean_roundtrip(tmp_path: Path) -> None:
+    """Setting telemetry.enabled to 'true' should store a TOML boolean, not a string."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    set_config_value("telemetry.enabled", "true", user_config_dir=user_dir)
+
+    # Read back via get_config_value
+    val = get_config_value(
+        "telemetry.enabled",
+        project_dir=tmp_path,
+        user_config_dir=user_dir,
+    )
+    assert val.value == "true"
+    assert val.source == "user"
+
+    # Also verify the TOML file contains a real boolean, not a quoted string
+    content = (user_dir / "config.toml").read_text()
+    # TOML boolean: `enabled = true` (no quotes)
+    assert "enabled = true" in content
+    # Must NOT be a quoted string: `enabled = "true"`
+    assert 'enabled = "true"' not in content
+
+
+def test_set_config_value_boolean_false_roundtrip(tmp_path: Path) -> None:
+    """Setting telemetry.enabled to 'false' should store a TOML boolean."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    set_config_value("telemetry.enabled", "false", user_config_dir=user_dir)
+
+    val = get_config_value(
+        "telemetry.enabled",
+        project_dir=tmp_path,
+        user_config_dir=user_dir,
+    )
+    assert val.value == "false"
+
+    content = (user_dir / "config.toml").read_text()
+    assert "enabled = false" in content
+    assert 'enabled = "false"' not in content
+
+
 def test_set_config_value_rejects_unknown_key(tmp_path: Path) -> None:
     """set_config_value must reject keys not in _DEFAULTS."""
     user_dir = tmp_path / "user"
