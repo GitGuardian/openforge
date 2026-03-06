@@ -28,4 +28,4 @@ Early development. See [tasks/prd-openforge-platform.md](tasks/prd-openforge-pla
 
 ## Licence
 
-TBD
+Apache 2.0 — see [LICENSE](LICENSE).
