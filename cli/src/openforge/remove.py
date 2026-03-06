@@ -106,13 +106,23 @@ def remove_command(
         )
         _remove_plugin_capabilities(entry, plugin_dir, project_dir)
 
-    # Remove canonical storage
-    remove_canonical_storage(
-        project_dir=project_dir,
-        name=name,
-        content_type=entry.type,
-        is_global=is_global,
-    )
+    # Remove canonical storage for each skill
+    for skill_name in entry.skills:
+        remove_canonical_storage(
+            project_dir=project_dir,
+            name=skill_name,
+            content_type=ContentType.SKILL,
+            is_global=is_global,
+        )
+
+    # For plugins, also remove the plugin-level canonical storage
+    if entry.type is ContentType.PLUGIN:
+        remove_canonical_storage(
+            project_dir=project_dir,
+            name=name,
+            content_type=ContentType.PLUGIN,
+            is_global=is_global,
+        )
 
     # Remove lock entry
     remove_lock_entry(lock_path, name)
