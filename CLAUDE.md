@@ -9,7 +9,7 @@ Read this entire file before doing anything.
 OpenForge is an open-source platform for distributing, discovering, and curating AI agent plugins and skills. It has two components:
 
 - **The Forge** — A web app for browsing, searching, voting, discussing, and curating plugins. Serves `marketplace.json` for native Claude Code/Cowork integration and `.well-known/skills/index.json` for skills.sh compatibility.
-- **CLI** — A Python tool (`uvx openforge`) for installing plugins and skills across 51 AI agents. Drop-in superset of skills.sh.
+- **CLI** — A Python tool (`uvx openforge`) for installing plugins and skills across 75 AI agents. Drop-in superset of skills.sh.
 
 The canonical plugin format is Claude Code's `.claude-plugin/` structure. Plugins are a superset of skills — they contain skills plus commands, hooks, MCP config, and agent definitions.
 
@@ -115,7 +115,7 @@ openforge/
         list_cmd.py             # list command
         config.py               # config command
         agents/
-          registry.py           # All 51 agent configs (data-driven)
+          registry.py           # All 75 agent configs (data-driven)
           base.py               # AgentConfig dataclass + AgentAdapter protocol
           adapters/
             claude.py           # Claude Code adapter
@@ -181,7 +181,7 @@ Every command is a Typer command. Use type annotations for arguments and options
 Every function signature must have full type annotations (parameters and return types). Use `dataclass`, `TypedDict`, `Protocol`, and `Enum` where appropriate. No `Any` unless truly unavoidable. Run `pyright` in strict mode — the CI and `pyproject.toml` must enforce this. Prefer `from __future__ import annotations` at the top of every file.
 
 **Agent configs are data-driven.**
-All 51 agents are defined as `AgentConfig` entries in `cli/src/openforge/agents/registry.py`. Do not create separate files per agent. Only agents with capabilities beyond `skills` (Claude Code, Cursor) get adapter classes in `agents/adapters/`.
+All 75 agents are defined as `AgentConfig` entries in `cli/src/openforge/agents/registry.py`. Do not create separate files per agent. Only agents with capabilities beyond `skills` (Claude Code, Cursor) get adapter classes in `agents/adapters/`.
 
 **Telemetry must never block.**
 All telemetry calls are fire-and-forget. Never let a telemetry failure prevent a command from completing.
@@ -224,7 +224,7 @@ When you make significant changes (new tables, new routes, new CLI commands, arc
 ### CLI
 - **`cli/src/openforge/cli.py`** — Typer app. All commands registered here.
 - **`cli/src/openforge/agents/base.py`** — AgentConfig dataclass and AgentAdapter protocol.
-- **`cli/src/openforge/agents/registry.py`** — All 51 agent definitions.
+- **`cli/src/openforge/agents/registry.py`** — All 75 agent definitions.
 - **`cli/src/openforge/installer.py`** — Core install logic.
 
 ---
@@ -264,7 +264,7 @@ The project includes a `.mcp.json` that configures MCP servers for all contribut
 - **Single monorepo.** The Forge and CLI live in the same repo for easier coordination.
 - **HTMX over SPA.** Server-rendered HTML with HTMX for interactivity. No client-side framework.
 - **Canonical plugin format.** Claude Code's `.claude-plugin/` structure. The CLI adapts it per agent.
-- **51-agent support.** Data-driven agent registry, drop-in compatible with skills.sh file layout.
+- **75-agent support.** Data-driven agent registry, drop-in compatible with skills.sh file layout.
 - **Public/private modes.** Single codebase supports both open community and company-internal deployments via config toggle.
 - **Telemetry architecture.** CLI sends simple JSON POST. The Forge stores in Postgres and emits OTel server-side.
 - **Config precedence.** env vars > `.openforge.toml` (project) > `~/.config/openforge/config.toml` (user) > defaults.

@@ -2,11 +2,34 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import typer
 from platformdirs import user_config_dir
 
 app = typer.Typer(name="openforge", help="Install and manage AI agent plugins and skills.")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        from importlib.metadata import version
+
+        typer.echo(version("openforge"))
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(  # pyright: ignore[reportUnusedFunction]
+    version: Optional[bool] = typer.Option(  # noqa: UP007
+        None,
+        "--version",
+        "-v",
+        help="Show version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Install and manage AI agent plugins and skills."""
 
 
 def get_project_dir() -> Path:

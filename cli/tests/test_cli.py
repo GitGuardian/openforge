@@ -46,6 +46,28 @@ def test_build_app_registers_commands() -> None:
     assert "config" in result.output
 
 
+def test_version_flag() -> None:
+    """--version should print the version and exit."""
+    from typer.testing import CliRunner
+
+    app = _build_app()
+    runner = CliRunner()
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "0.1.0" in result.output
+
+
+def test_short_version_flag() -> None:
+    """-v should print the version and exit."""
+    from typer.testing import CliRunner
+
+    app = _build_app()
+    runner = CliRunner()
+    result = runner.invoke(app, ["-v"])
+    assert result.exit_code == 0
+    assert "0.1.0" in result.output
+
+
 def test_main_calls_build_app_and_runs() -> None:
     """main() should build the app and invoke it."""
     with patch("openforge.cli._build_app") as mock_build, \
