@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import json
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -45,8 +44,10 @@ def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
     mcp_path = plugin_dir / ".mcp.json"
     if not mcp_path.is_file():
         return {}
-    data: dict[str, Any] = json.loads(mcp_path.read_text(encoding="utf-8"))
-    servers: dict[str, Any] = cast(dict[str, Any], data.get("mcpServers", {}))
+    data = cast(
+        dict[str, Any], json.loads(mcp_path.read_text(encoding="utf-8"))
+    )
+    servers = cast(dict[str, Any], data.get("mcpServers", {}))
     result: dict[str, str] = {}
     for name, config in servers.items():
         if not isinstance(config, dict):
@@ -54,10 +55,12 @@ def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
             continue
         typed_config = cast(dict[str, Any], config)
         cmd: str = str(typed_config.get("command", ""))
-        args_val: Any = typed_config.get("args", [])
+        args_val: object = typed_config.get("args", [])
         if isinstance(args_val, list):
             args_list = cast(list[Any], args_val)
-            cmd_str = f"{cmd} {' '.join(str(a) for a in args_list)}".strip()
+            cmd_str = (
+                f"{cmd} {' '.join(str(a) for a in args_list)}".strip()
+            )
         else:
             cmd_str = cmd
         result[str(name)] = cmd_str
@@ -72,7 +75,9 @@ def _collect_hooks(plugin_dir: Path) -> list[tuple[str, str]]:
         hooks_path = plugin_dir / "hooks" / "hooks.json"
     if not hooks_path.is_file():
         return []
-    data: dict[str, Any] = json.loads(hooks_path.read_text(encoding="utf-8"))
+    data = cast(
+        dict[str, Any], json.loads(hooks_path.read_text(encoding="utf-8"))
+    )
     result: list[tuple[str, str]] = []
     # hooks.json can be {"hooks": [...]} or {"PreToolUse": [...], ...}
     hooks_val: Any = data.get("hooks", data)
@@ -215,8 +220,8 @@ def add_command(
     project_dir = get_project_dir()
     provider = GitHubProvider()
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="openforge-"))
-    try:
+    with tempfile.TemporaryDirectory(prefix="openforge-") as tmp_str:
+        tmp_dir = Path(tmp_str)
         try:
             git_sha = provider.fetch(parsed, tmp_dir)
         except subprocess.CalledProcessError as e:
@@ -351,6 +356,3 @@ def add_command(
             )
 
         _console.print(table)
-
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)

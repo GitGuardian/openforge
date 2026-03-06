@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +52,12 @@ def read_lock(path: Path) -> LockFile:
 
 
 def write_lock(path: Path, lock: LockFile) -> None:
-    """Write *lock* to *path* as formatted JSON with indent=2."""
+    """Write *lock* to *path* as formatted JSON with indent=2.
+
+    Uses atomic write (write-to-temp-then-rename) and sets restrictive
+    permissions (0o600) on the resulting file.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
         "version": lock.version,
         "entries": {
@@ -59,7 +65,11 @@ def write_lock(path: Path, lock: LockFile) -> None:
             for name, entry in lock.entries.items()
         },
     }
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    content = json.dumps(payload, indent=2) + "\n"
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(content, encoding="utf-8")
+    os.chmod(tmp_path, 0o600)
+    os.replace(tmp_path, path)
 
 
 def add_lock_entry(path: Path, name: str, entry: LockEntry) -> None:

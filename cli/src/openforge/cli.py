@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+from platformdirs import user_config_dir
 
 app = typer.Typer(name="openforge", help="Install and manage AI agent plugins and skills.")
 
@@ -13,8 +14,8 @@ def get_project_dir() -> Path:
 
 
 def get_user_config_dir() -> Path:
-    """Return the user-level config directory."""
-    return Path.home() / ".config" / "openforge"
+    """Return the user-level config directory (platform-appropriate)."""
+    return Path(user_config_dir("openforge"))
 
 
 def _build_app() -> typer.Typer:
