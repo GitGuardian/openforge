@@ -67,3 +67,71 @@ def test_fetch_token_not_in_clone_url(
     assert "ghp_secret123" not in url_args[0]
     # The extraheader config must be present
     assert "http.extraheader=Authorization: Bearer ghp_secret123" in clone_call_args
+
+
+def test_fetch_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When no GITHUB_TOKEN is set, clone should not include extraheader."""
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+
+    mock_run = MagicMock()
+    mock_run.return_value.stdout = "def456\n"
+
+    provider = GitHubProvider()
+    source = Source(owner="acme", repo="tools")
+    dest = tmp_path / "repo"
+
+    with patch("openforge.providers.github.subprocess.run", mock_run):
+        sha = provider.fetch(source, dest)
+
+    assert sha == "def456"
+    clone_call_args: list[str] = mock_run.call_args_list[0][0][0]
+    # No extraheader should be present
+    assert all("extraheader" not in arg for arg in clone_call_args)
+
+
+def test_fetch_with_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When source has a ref, --branch should be passed to git clone."""
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+
+    mock_run = MagicMock()
+    mock_run.return_value.stdout = "abc789\n"
+
+    provider = GitHubProvider()
+    source = Source(owner="acme", repo="tools", ref="v1.0")
+    dest = tmp_path / "repo"
+
+    with patch("openforge.providers.github.subprocess.run", mock_run):
+        sha = provider.fetch(source, dest)
+
+    assert sha == "abc789"
+    clone_call_args: list[str] = mock_run.call_args_list[0][0][0]
+    assert "--branch" in clone_call_args
+    branch_idx = clone_call_args.index("--branch")
+    assert clone_call_args[branch_idx + 1] == "v1.0"
+
+
+def test_fetch_with_gh_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GH_TOKEN should also be used when GITHUB_TOKEN is not set."""
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("GH_TOKEN", "ghp_alt_token")
+
+    mock_run = MagicMock()
+    mock_run.return_value.stdout = "sha111\n"
+
+    provider = GitHubProvider()
+    source = Source(owner="acme", repo="tools")
+    dest = tmp_path / "repo"
+
+    with patch("openforge.providers.github.subprocess.run", mock_run):
+        provider.fetch(source, dest)
+
+    clone_call_args: list[str] = mock_run.call_args_list[0][0][0]
+    assert "http.extraheader=Authorization: Bearer ghp_alt_token" in clone_call_args

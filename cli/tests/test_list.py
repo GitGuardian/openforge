@@ -7,8 +7,8 @@ from unittest.mock import patch
 import typer
 from typer.testing import CliRunner
 
-from openforge.types import LockFile, LockEntry, ContentType, SourceType
 from openforge.lock import write_lock
+from openforge.types import ContentType, LockEntry, LockFile, SourceType
 
 runner = CliRunner()
 
@@ -27,9 +27,7 @@ def _make_app() -> typer.Typer:
     return app
 
 
-def test_list_shows_installed(tmp_path: Path) -> None:
-    test_app = _make_app()
-
+def _make_lock(tmp_path: Path) -> None:
     lock_path = tmp_path / ".openforge-lock.json"
     write_lock(lock_path, LockFile(entries={
         "lint": LockEntry(
@@ -45,6 +43,11 @@ def test_list_shows_installed(tmp_path: Path) -> None:
         ),
     }))
 
+
+def test_list_shows_installed(tmp_path: Path) -> None:
+    test_app = _make_app()
+    _make_lock(tmp_path)
+
     with patch("openforge.list_cmd.get_project_dir", return_value=tmp_path):
         result = runner.invoke(test_app, ["list"])
         assert result.exit_code == 0
@@ -58,4 +61,26 @@ def test_list_empty(tmp_path: Path) -> None:
     with patch("openforge.list_cmd.get_project_dir", return_value=tmp_path):
         result = runner.invoke(test_app, ["list"])
         assert result.exit_code == 0
-        assert "no plugins" in result.output.lower() or "no skills" in result.output.lower() or "nothing installed" in result.output.lower() or "empty" in result.output.lower()
+        assert "No plugins or skills installed." in result.output
+
+
+def test_list_with_agent_filter(tmp_path: Path) -> None:
+    """List with --agent filters to entries installed for that agent."""
+    test_app = _make_app()
+    _make_lock(tmp_path)
+
+    with patch("openforge.list_cmd.get_project_dir", return_value=tmp_path):
+        result = runner.invoke(test_app, ["list", "--agent", "claude-code"])
+        assert result.exit_code == 0
+        assert "lint" in result.output
+
+
+def test_list_with_agent_filter_no_match(tmp_path: Path) -> None:
+    """List with --agent for a non-matching agent shows appropriate message."""
+    test_app = _make_app()
+    _make_lock(tmp_path)
+
+    with patch("openforge.list_cmd.get_project_dir", return_value=tmp_path):
+        result = runner.invoke(test_app, ["list", "--agent", "cursor"])
+        assert result.exit_code == 0
+        assert "No plugins or skills installed for agent 'cursor'." in result.output
