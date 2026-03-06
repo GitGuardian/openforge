@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "railway": {
+      "command": "npx",
+      "args": ["-y", "@railway/mcp-server"]
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/context7-mcp@latest"]
+    }
+  }
+}
