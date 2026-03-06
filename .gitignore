@@ -33,3 +33,6 @@ drizzle/meta/
 
 # Build artifacts
 *.tgz
+
+# Worktrees (superpowers plugin)
+.worktrees/
