@@ -1,17 +1,17 @@
 # OpenForge — Product Requirements Document
 
-**Version:** 0.1 (draft)
+**Version:** 0.2
 **Date:** 2026-03-06
 **Author:** Jeremy Brown + Claude
-**Status:** Draft — awaiting review
+**Status:** Active
 
 ---
 
 ## 1. Overview
 
-OpenForge is an open-source platform for distributing, discovering, and curating AI agent plugins and skills. It consists of a **web portal** and a **CLI tool** that work together to let teams manage a trusted internal catalogue of plugins, with community features (voting, discussion, install tracking) layered on top of git-backed storage.
+OpenForge is an open-source platform for distributing, discovering, and curating AI agent plugins and skills. It consists of **the Forge** (a web app) and a **CLI tool** that work together to let teams manage a trusted internal catalogue of plugins, with community features (voting, discussion, install tracking) layered on top of git-backed storage.
 
-The canonical plugin format is Claude Code's `.claude-plugin/` structure. The CLI adapts plugins for installation across multiple agents (Claude Code, Claude Desktop/Cowork, Cursor, Codex CLI, OpenCode, Gemini CLI, and others).
+The canonical plugin format is Claude Code's `.claude-plugin/` structure. The CLI is a drop-in superset of skills.sh — same source syntax, same file layout on disk, same agent support (51 agents) — plus full plugin support (MCP config, commands, hooks). It adapts plugins for installation across all major AI agents.
 
 OpenForge is designed to be generic — any company can self-host and run it.
 
@@ -55,16 +55,16 @@ OpenForge is designed to be generic — any company can self-host and run it.
 ```
                     Git Repo(s)
                     (source of truth for plugin content)
-                    - Internal monorepo (gg-agent-forge on GitHub)
+                    - Internal plugin monorepo
                     - External blessed repos (anthropics/claude-plugins-official, etc.)
                          |
                          | webhook on push
                          v
               +---------------------+
-              |   Portal (Web App)  |   Bun + Hono + HTMX + Drizzle
-              |                     |   Hosted on Railway
-              |   - Browse/search   |   Auth: Okta SSO via Cloudflare
-              |   - Vote/discuss    |
+              |  The Forge (Web App)|   Bun + Hono + HTMX + Drizzle
+              |                     |   Hosted on Railway + Supabase
+              |   - Browse/search   |   Auth: Supabase Auth
+              |   - Vote/discuss    |   Modes: public or private
               |   - Curate/approve  |
               |   - Upload (ZIP)    |
               |   - Admin panel     |
@@ -75,52 +75,58 @@ OpenForge is designed to be generic — any company can self-host and run it.
               |     skills/         |
               +----------+----------+
                          |
-                    Supabase (Postgres)
+                    Supabase (Postgres + Auth)
                     - Plugin metadata (indexed from git)
                     - Votes, comments, tags
-                    - Install events (telemetry)
-                    - User accounts, ownership, roles
+                    - Install events (telemetry) + OTel emission
+                    - User accounts (Supabase Auth), ownership, roles
                     - Registry of registered git sources
+                    - Row Level Security on all tables
 
               +---------------------+
               |   CLI (Python)      |   Distributed via uvx / PyPI
               |                     |   Package name: openforge
-              |   - install         |
-              |   - find/search     |
-              |   - list/remove     |
+              |   - add/remove      |   Drop-in superset of skills.sh
+              |   - find/list       |   51 agent support
+              |   - check/update    |   Config: .openforge.toml /
+              |   - config          |     ~/.config/openforge/config.toml
               |   - Multi-agent     |
               |     adaptation      |
-              |   - OTel telemetry  |
               +---------------------+
 
               +---------------------+
               |  Claude Code/Cowork |   Native marketplace support
-              |  (direct)           |   marketplace add <portal-url>
+              |  (direct)           |   marketplace add <forge-url>
               |                     |   Post-install hook for telemetry
+              +---------------------+
+
+              +---------------------+
+              |  skills.sh (compat) |   .well-known/skills/index.json
+              |  npx skills add     |   Compatible file layout on disk
               +---------------------+
 ```
 
 ### 5.2 Storage model
 
-**Git repos** are the source of truth for plugin/skill content. The portal never stores plugin files in the database.
+**Git repos** are the source of truth for plugin/skill content. The Forge never stores plugin files in the database.
 
-**Supabase/Postgres** is the source of truth for community data: votes, comments, install events, user accounts, ownership, approval status, registry of git sources.
+**Supabase/Postgres** is the source of truth for community data: votes, comments, install events, user accounts, ownership, approval status, registry of git sources. Row Level Security is enabled on all tables from day one.
 
-**Webhook-driven indexing:** When a git repo is pushed, a webhook fires and the portal re-indexes plugin metadata (names, descriptions, versions, SKILL.md frontmatter) into Postgres. The portal reads from its own DB for browsing and search; git remains canonical for content.
+**Webhook-driven indexing:** When a git repo is pushed, a webhook fires and the Forge re-indexes plugin metadata (names, descriptions, versions, SKILL.md frontmatter) into Postgres. The Forge reads from its own DB for browsing and search; git remains canonical for content.
 
 ### 5.3 Multiple registries
 
-The portal maintains a list of registered git sources:
+The Forge maintains a list of registered git sources:
 
 | Registry | Type | Example |
 |----------|------|---------|
-| Internal monorepo | Primary | `github.com/GitGuardian/gg-agent-forge` |
+| Internal monorepo | Primary | `github.com/acme-corp/agent-plugins` |
 | Anthropic official | Blessed external | `github.com/anthropics/claude-plugins-official` |
 | Anthropic knowledge-work | Blessed external | `github.com/anthropics/knowledge-work-plugins` |
-| Team-specific repos | Internal | `github.com/GitGuardian/team-x-plugins` |
+| Team-specific repos | Internal | `github.com/acme-corp/team-x-plugins` |
 | Other blessed repos | External | Admin-approved third-party repos |
 
-Registries are managed by admin users via the portal UI. Each registered repo must contain a `marketplace.json` or discoverable SKILL.md files.
+Registries are managed by admin users via the Forge UI. Each registered repo must contain a `marketplace.json` or discoverable SKILL.md files.
 
 ### 5.4 Plugin canonical format
 
@@ -141,38 +147,46 @@ my-plugin/
 
 ### 5.5 Multi-agent adaptation
 
-The CLI installs the canonical plugin to `.agents/plugins/<name>/` and adapts per detected agent:
+The CLI supports all 51 agents from skills.sh via a data-driven agent registry. Each agent has a name, skills directory, global skills directory, detection function, and a set of capabilities.
 
-| Component | Claude Code/Cowork | Cursor | Codex CLI | OpenCode | Gemini CLI |
-|-----------|:------------------:|:------:|:---------:|:--------:|:----------:|
-| Skills (SKILL.md) | Symlink | Symlink | Symlink | Symlink | Symlink |
-| MCP config | Native | Generate `.cursor/mcp.json` | Generate `.mcp.json` | Generate config | Generate `.gemini/settings.json` |
-| Commands | Native | Translate to `.cursor/rules/` MDC | Convert to skill | Convert to `.opencode/agent/` | Inject into GEMINI.md |
-| Hooks | Native | Auto-compatible (Cursor reads Claude hooks) | Skip | Skip | Skip |
-| Agents | Native | Skip | Skip | Partial translate | Skip |
-| env.json | Native | Print setup instructions | Print setup instructions | Print setup instructions | Print setup instructions |
+Plugins are stored at `.agents/plugins/<name>/`, standalone skills at `.agents/skills/<name>/`. Skills from plugins are symlinked to all detected agents' skills directories universally. Richer plugin components (MCP, commands, hooks) are installed only to agents that support them.
+
+**Capabilities per agent (Phase 1):**
+
+| Agent | Capabilities |
+|-------|-------------|
+| Claude Code/Cowork | `skills`, `mcp`, `commands`, `hooks`, `agents`, `env` |
+| Cursor | `skills`, `mcp`, `commands` |
+| All other 49 agents | `skills` |
+
+Adding capabilities to an agent is a one-line config change. Implementing a new capability means writing the adapter for that agent's format.
+
+**Installation strategy:**
+- Default: symlink from agent skills dir → canonical location
+- Fallback: copy if symlinks not supported (e.g. Windows without dev mode)
+- Compatible file layout with skills.sh — both tools put skills in `.agents/skills/`
 
 ---
 
 ## 6. Features
 
-### 6.1 Portal — Browse and discover
+### 6.1 The Forge — Browse and discover
 
 - **Catalogue page:** List all plugins and skills across all registered repos, with name, description, category, tags, install count, vote score.
 - **Search:** Full-text search across plugin names, descriptions, skill content, and tags.
 - **Filters:** By category, tag, source repo, agent compatibility, approval status.
 - **Detail page:** Per plugin/skill — full description, README, list of contained skills/commands/agents, install instructions, version history.
-- **Marketplace.json endpoint:** `GET /api/marketplace.json` — serves a dynamic `marketplace.json` that Claude Code/Cowork can consume directly via `claude plugin marketplace add <portal-url>`.
+- **Marketplace.json endpoint:** `GET /api/marketplace.json` — serves a dynamic `marketplace.json` that Claude Code/Cowork can consume directly via `claude plugin marketplace add <forge-url>`.
 - **Well-known endpoint:** `GET /.well-known/skills/index.json` — compatible with skills.sh CLI and the well-known provider protocol.
 
-### 6.2 Portal — Community features
+### 6.2 The Forge — Community features
 
 - **Upvote/downvote:** Reddit-style per plugin/skill. One vote per user per item. Net score displayed.
 - **Threaded comments:** Per plugin/skill. Supports replies (nested one level). Markdown formatting.
 - **Install count:** Displayed per plugin/skill, fed by CLI telemetry and post-install hooks.
 - **Composite ranking:** Configurable formula combining install count, vote score, and recency.
 
-### 6.3 Portal — Curation and approval
+### 6.3 The Forge — Curation and approval
 
 - **Submission review queue:** New plugins submitted via ZIP upload enter "pending review" state.
 - **Curator dashboard:** Curators see pending submissions, can approve, request changes, or reject.
@@ -180,110 +194,118 @@ The CLI installs the canonical plugin to `.agents/plugins/<name>/` and adapts pe
 - **Deprecation:** Curators or owners can mark plugins as deprecated (hidden from default browse, warning on install).
 - **Notification:** Slack + email notifications to curators on new submissions, to owners on approval/rejection, to users on plugin updates.
 
-### 6.4 Portal — Non-technical plugin submission
+### 6.4 The Forge — Non-technical plugin submission
 
 **Upload flow:**
 
 1. User clicks "Submit a plugin" and uploads a ZIP file.
-2. Portal extracts and validates:
+2. The Forge extracts and validates:
    - Has `.claude-plugin/plugin.json`?
    - Has at least one `SKILL.md` with valid frontmatter?
-   - No secrets detected (integrate with gg-shield or similar scanning).
+   - No secrets detected (integrate with ggshield or similar scanning).
    - Claude Code LLM-based security scan for prompt injection and other risks.
-3. Portal shows a preview: "Found 1 plugin with 3 skills and 1 MCP server."
+3. The Forge shows a preview: "Found 1 plugin with 3 skills and 1 MCP server."
 4. User edits metadata in a form: display name, description, category, tags, README.
 5. User submits for review.
-6. Portal backend:
+6. The Forge backend:
    - Assigns version `0.1.0` (first submission).
    - Creates branch `submissions/<username>/<plugin-name>` in the internal monorepo.
    - Commits plugin files to `plugins/<name>/`.
    - Updates `marketplace.json` (adds entry).
    - Opens MR on GitHub with auto-generated title and description.
-   - Marks as "pending review" in portal DB.
+   - Marks as "pending review" in the Forge DB.
    - Notifies curators via Slack + email.
 
 **Update flow:**
 
 1. Owner clicks "Update" on their plugin and uploads a new ZIP.
-2. Portal diffs against current version and shows changes.
+2. The Forge diffs against current version and shows changes.
 3. Auto-increments version (minor for new skills/commands, patch for content changes; owner can override).
 4. Prompts for changelog note (optional).
 5. Commits directly to main branch (owner has publish rights post-approval).
 6. CI runs security checks.
-7. On CI pass: portal re-indexes, users notified of update via email.
+7. On CI pass: the Forge re-indexes, users notified of update via email.
 8. On CI fail: owner notified, changes held until fixed.
 
-### 6.5 Portal — Admin
+### 6.5 The Forge — Admin
 
 - **Registry management:** Add/remove registered git sources. Configure webhook URLs.
-- **User roles:** Admin (manage registries, curators, settings), Curator (approve/reject submissions), Owner (manage own plugins), User (browse, vote, comment, install).
+- **Allowed email domains:** Admins configure an allowlist of email domains (e.g. `acme.com`, `contractor.acme.com`) that can register. Sign-up attempts from unlisted domains are rejected. If the allowlist is empty, registration is open to all.
+- **User roles:** Admin (manage registries, curators, settings, allowed domains), Curator (approve/reject submissions), Owner (manage own plugins), User (browse, vote, comment, install).
 - **Plugin ownership:** Track owners and editors per plugin. Owners can add/remove editors.
 
 ### 6.6 CLI — Core commands
 
 ```bash
-# Install a plugin (auto-detects agents, adapts per agent)
-uvx openforge install <plugin-name>
-uvx openforge install <plugin-name> --agent cursor  # target specific agent
+# Add a plugin or skill (auto-detects type, adapts per agent)
+uvx openforge add <owner/repo>              # all skills/plugins from repo
+uvx openforge add <owner/repo>@<skill>      # specific skill from repo
+uvx openforge add <owner/repo> --agent cursor  # target specific agent
+uvx openforge add <owner/repo> --global     # install globally
 
 # Search/browse
-uvx openforge find [query]
+uvx openforge find [query]                  # local in Phase 1, remote in Phase 2
 uvx openforge find --tag security
-uvx openforge find --category productivity
 
-# List installed plugins
+# List installed plugins and skills
 uvx openforge list
+uvx openforge list --global
+uvx openforge list --agent claude-code
 
-# Remove a plugin
-uvx openforge remove <plugin-name>
+# Remove a plugin or skill
+uvx openforge remove <name>
+uvx openforge remove <name> --global
 
 # Check for updates
 uvx openforge check
 
-# Update all plugins
+# Update all plugins and skills
 uvx openforge update
 
-# Install from specific registry
-uvx openforge install <plugin-name> --registry anthropic-official
+# Configure CLI
+uvx openforge config set forge.url https://forge.acme.com
+uvx openforge config get forge.url
+uvx openforge config list
 
-# Install a standalone skill (not a full plugin)
-uvx openforge add <owner/repo>           # GitHub shorthand
-uvx openforge add <owner/repo>@<skill>   # specific skill from repo
-
-# Initialise a new plugin from template
+# Initialise a new plugin from template (Phase 2+)
 uvx openforge init <plugin-name>
 ```
 
+Source syntax is drop-in compatible with skills.sh (`owner/repo`, `owner/repo@skill`, full URLs).
+
 ### 6.7 CLI — Installation behaviour
 
-1. Fetch plugin from the portal API (discovery) or git repo (content).
-2. Store canonical copy at `.agents/plugins/<name>/`.
-3. Detect installed agents (check for `.cursor/`, `claude` binary, `.codex/`, etc.).
-4. Per agent:
-   - Symlink skills to agent-specific directory.
-   - Generate MCP config in agent-specific format/location.
-   - Translate commands where the target agent supports them.
-   - Skip unsupported components with a warning.
-5. Report telemetry to the portal (plugin name, version, agents installed for).
-6. Print summary of what was installed where.
+1. Parse source and fetch content from git repo (Phase 1) or the Forge API (Phase 2).
+2. Auto-detect content type: plugin (has `.claude-plugin/plugin.json`) or standalone skills.
+3. Store canonical copy: plugins at `.agents/plugins/<name>/`, standalone skills at `.agents/skills/<name>/`.
+4. Detect installed agents (all 51 supported agents checked).
+5. Per agent, based on capabilities:
+   - Symlink skills to agent's skills directory (all agents).
+   - Generate MCP config in agent-specific format (agents with `mcp` capability).
+   - Translate commands to agent format (agents with `commands` capability).
+   - Install hooks (agents with `hooks` capability).
+   - Skip unsupported components with a note.
+6. Write to `.openforge-lock.json`.
+7. Report telemetry to the Forge (fire-and-forget, respects `DO_NOT_TRACK=1`).
+8. Print summary of what was installed where.
 
 ### 6.8 CLI — Telemetry
 
-- **Protocol:** OpenTelemetry (OTel), similar to skills.sh telemetry model.
-- **Events:** install, remove, find, check, update.
-- **Data per event:** Plugin name, version, source registry, target agents, CLI version, CI detection.
-- **Privacy:** Disabled via `OPENFORGE_DISABLE_TELEMETRY=1` or `DO_NOT_TRACK=1`. Fire-and-forget (never blocks CLI). No PII beyond what's in the event.
-- **Endpoint:** Portal API `POST /api/telemetry`.
+- **Protocol:** Simple JSON POST to the Forge. The Forge stores events in Postgres and emits OTel spans/events server-side (companies can route to their own OTel collector).
+- **Events:** add, remove, find, check, update.
+- **Data per event:** Plugin/skill name, version, source, source type, target agents, CLI version, CI detection. When authenticated to a company Forge, includes user identity.
+- **Privacy:** Disabled via `DO_NOT_TRACK=1`. Fire-and-forget (never blocks CLI). No PII in anonymous mode. Auto-disabled in CI. Skips telemetry for private repos.
+- **Default endpoint:** `openforge.gitguardian.com/api/telemetry` (configurable via `.openforge.toml` or `~/.config/openforge/config.toml`).
 
 ### 6.9 Install tracking — Post-install hooks
 
-Every plugin published through the portal includes a bundled `SessionStart` hook that pings the portal on first activation per version:
+Every plugin published through the Forge includes a bundled `SessionStart` hook that pings the Forge on first activation per version:
 
 ```bash
 #!/bin/sh
 FLAG="$HOME/.cache/openforge/activated-<plugin>-<version>"
 [ -f "$FLAG" ] && exit 0
-curl -s -X POST https://<portal>/api/telemetry/activate \
+curl -s -X POST https://<forge>/api/telemetry/activate \
   -d '{"plugin":"<name>","version":"<version>"}' > /dev/null 2>&1 || true
 mkdir -p "$(dirname "$FLAG")" && touch "$FLAG"
 ```
@@ -292,7 +314,7 @@ This captures installs via `claude plugin install` (native CLI) and Cowork deskt
 
 ### 6.10 Claude Code/Cowork native integration
 
-- The portal serves a `marketplace.json` at a stable URL.
+- The Forge serves a `marketplace.json` at a stable URL.
 - Teams add it once: `claude plugin marketplace add https://forge.company.com/api/marketplace.json`
 - Or via managed settings in `.claude/settings.json`:
   ```json
@@ -308,7 +330,7 @@ This captures installs via `claude plugin install` (native CLI) and Cowork deskt
   }
   ```
 - After that, plugins are browsable and installable natively via `/plugin` in Claude Code and "Browse plugins" in Cowork.
-- The portal-served marketplace.json logs access for discovery tracking.
+- The Forge-served marketplace.json logs access for discovery tracking.
 
 ---
 
@@ -317,11 +339,18 @@ This captures installs via `claude plugin install` (native CLI) and Cowork deskt
 ### Core tables
 
 ```sql
+-- Allowed email domains for registration
+create table allowed_domains (
+  id uuid primary key default gen_random_uuid(),
+  domain text not null unique,            -- "acme.com"
+  created_at timestamptz default now()
+);
+
 -- Registered git sources
 create table registries (
   id uuid primary key default gen_random_uuid(),
-  name text not null unique,              -- "gg-agent-forge", "anthropic-official"
-  git_url text not null,                  -- "https://github.com/GitGuardian/gg-agent-forge.git"
+  name text not null unique,              -- "internal-plugins", "anthropic-official"
+  git_url text not null,                  -- "https://github.com/acme-corp/agent-plugins.git"
   registry_type text not null,            -- "internal", "blessed-external"
   webhook_secret text,
   indexed_at timestamptz,
@@ -361,13 +390,13 @@ create table skills (
   created_at timestamptz default now()
 );
 
--- User accounts (linked to SSO)
+-- User accounts (managed by Supabase Auth)
 create table users (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
   display_name text,
   role text default 'user',               -- admin, curator, user
-  sso_subject text unique,                -- from Okta/OIDC
+  auth_id uuid unique,                    -- from Supabase Auth (auth.users.id)
   created_at timestamptz default now()
 );
 
@@ -435,7 +464,7 @@ create table submissions (
 When a plugin is submitted (via ZIP upload or direct MR), CI runs:
 
 1. **Structure validation:** Verify plugin.json schema, SKILL.md frontmatter, required files.
-2. **Secret scanning:** Run gg-shield (or equivalent) to detect leaked credentials.
+2. **Secret scanning:** Run ggshield (or equivalent) to detect leaked credentials.
 3. **Prompt injection scan:** Use Claude Code to review SKILL.md content, commands, and agent definitions for prompt injection attempts and other LLM-specific security risks.
 4. **Linting:** Validate markdown formatting, check for broken internal references.
 
@@ -466,17 +495,18 @@ Slack integration via a Slack app. Email via Supabase Auth emails or a transacti
 
 | Component | Technology |
 |-----------|-----------|
-| Portal server | Bun + Hono |
-| Portal UI | HTMX + Tailwind CSS (CDN) |
-| Portal DB | Supabase (Postgres) + Drizzle ORM |
-| Portal hosting | Railway |
-| Portal auth | Okta SSO via Cloudflare (X-User-Id / X-User-Email headers) |
+| The Forge server | Bun + Hono |
+| The Forge UI | HTMX + Tailwind CSS (CDN) |
+| The Forge DB | Supabase (Postgres + RLS) + Drizzle ORM |
+| The Forge hosting | Railway (behind Cloudflare) |
+| The Forge auth | Supabase Auth (email/password, magic link, OAuth providers) |
 | CLI | Python 3.10+ with Typer |
 | CLI distribution | PyPI (`openforge`), installed via `uvx openforge` |
-| CLI telemetry | OpenTelemetry |
+| CLI config | `.openforge.toml` (project) + `~/.config/openforge/config.toml` (user) |
+| Telemetry | JSON POST to Forge, Forge emits OTel server-side |
 | Plugin storage | Git repos (GitHub) |
 | Git operations | GitHub API (webhooks, branch/MR creation) |
-| Secret scanning | gg-shield integration |
+| Secret scanning | ggshield integration |
 | Security scanning | Claude Code LLM review |
 | Notifications | Slack app + transactional email |
 
@@ -484,64 +514,78 @@ Slack integration via a Slack app. Email via Supabase Auth emails or a transacti
 
 ## 11. Repo structure
 
-Single repo: `github.com/GitGuardian/openforge`
+Single repo: `github.com/<org>/openforge`
 
 ```
 openforge/
-  cli/                          # Python CLI
+  cli/                          # Python CLI (uvx openforge)
     pyproject.toml              # Package: openforge
     src/
       openforge/
         __init__.py
         cli.py                  # Typer app, entry point
-        install.py              # Install logic
-        find.py                 # Search/browse
-        list.py                 # List installed
-        remove.py               # Remove
-        sync.py                 # Update/check
-        agents/                 # Agent detection and adaptation
-          claude.py
-          cursor.py
-          codex.py
-          opencode.py
-          gemini.py
-          base.py               # Agent interface
-        providers/              # Source resolution
-          github.py
-          gitlab.py
-          wellknown.py
-          registry.py
+        add.py                  # add command
+        remove.py               # remove command
+        find.py                 # find command (local search)
+        list.py                 # list command
+        config.py               # config command
+        agents/
+          registry.py           # All 51 agent configs (data-driven)
+          base.py               # AgentConfig dataclass + AgentAdapter protocol
+          adapters/
+            claude.py           # Claude Code MCP/commands/hooks adapter
+            cursor.py           # Cursor MCP/commands adapter
+        providers/
+          base.py               # Provider protocol
+          github.py             # GitHub clone + content detection
+          registry.py           # Forge API provider (Phase 2)
+          wellknown.py          # Well-known URL provider (Phase 2)
+          source_parser.py      # Parse owner/repo@skill syntax
+        installer.py            # Core install logic (symlink/copy, agent dispatch)
+        plugins.py              # plugin.json / marketplace.json parsing
         skills.py               # SKILL.md parsing
-        lock.py                 # Lock file management
-        telemetry.py            # OTel integration
+        lock.py                 # Lock file management (.openforge-lock.json)
+        config_file.py          # TOML config file read/write/precedence
+        telemetry.py            # Fire-and-forget JSON POST
         types.py
     tests/
-  portal/                       # Web app
+  forge/                        # The Forge (web app)
     package.json
+    tsconfig.json
+    drizzle.config.ts
+    Dockerfile
+    .env.example
     src/
       index.ts                  # Hono app entry
+      types.ts                  # Shared Hono types (AppEnv)
       routes/
         pages.ts                # HTML pages (browse, detail, submit, admin)
         api.ts                  # JSON API (marketplace.json, telemetry, well-known)
+        health.ts               # GET /health
       db/
-        schema.ts               # Drizzle schema
+        schema.ts               # Drizzle schema (with RLS)
         index.ts                # DB client
       lib/
         git.ts                  # GitHub API operations (indexing, MR creation)
         validation.ts           # Plugin/skill validation
         notifications.ts        # Slack + email
+        supabase.ts             # Supabase client (auth, storage)
       views/
-        layout.ts               # HTML layout
+        layout.ts               # HTML layout (Tailwind + HTMX)
       middleware/
-        user.ts                 # SSO user identity
+        auth.ts                 # Supabase Auth middleware
     drizzle/                    # Migrations
-  migrations/                   # Shared SQL (if needed outside Drizzle)
+    public/                     # Static files
   docs/
+    plans/                      # PRDs and design docs
     architecture.md
     deployment.md
     contributing.md
+  .openforge.toml               # Project-level CLI config (optional)
+  .mcp.json                     # MCP servers (Railway, Supabase, Context7)
+  CLAUDE.md                     # Agent instructions
   README.md
-  LICENSE                       # TBD: MIT or Apache 2.0
+  LICENSE                       # Apache 2.0
 ```
 
 ---
@@ -551,22 +595,24 @@ openforge/
 ### Phase 0: Name reservation
 - Register `openforge` on PyPI (placeholder package).
 - Register `openforge` on npm (placeholder package).
-- Confirm GitHub repo: `github.com/GitGuardian/openforge`.
+- Create GitHub repo for OpenForge.
 
 ### Phase 1: CLI (MVP)
-- Core commands: `install`, `find`, `list`, `remove`.
-- Multi-agent adaptation for Claude Code and Cursor.
-- Install from git repos (GitHub shorthand, URLs).
-- Basic OTel telemetry.
+- Core commands: `add`, `remove`, `find`, `list`, `config`.
+- All 51 agents supported for skills; Claude Code + Cursor for plugin extras.
+- Install from git repos (GitHub shorthand, URLs) — drop-in compatible with skills.sh syntax.
+- Basic telemetry (JSON POST, fire-and-forget).
 - Publish to PyPI.
 
-### Phase 2: Portal (MVP)
-- Browse/search plugins indexed from gg-agent-forge.
+### Phase 2: The Forge (MVP)
+- Browse/search plugins indexed from registered git repos.
 - Upvote/downvote and threaded comments.
 - Serve `marketplace.json` and `.well-known/skills/index.json`.
-- SSO auth via Okta/Cloudflare.
+- Supabase Auth (email/password, magic link, optional OAuth) with allowed email domains.
+- Row Level Security on all tables.
+- Public and private deployment modes.
 - Webhook-driven indexing from GitHub.
-- Deploy to Railway + Supabase.
+- Deploy to Railway + Supabase (first instance: `openforge.gitguardian.com`, private mode).
 
 ### Phase 3: Non-technical submissions
 - ZIP upload flow with validation.
@@ -576,16 +622,16 @@ openforge/
 
 ### Phase 4: Polish and expand
 - Install tracking via post-install hooks.
-- Additional agent support (Codex, OpenCode, Gemini).
-- CI pipeline for plugin security scanning.
-- Plugin update flow with versioning.
+- Additional agent capabilities beyond skills (MCP, commands for more agents).
+- CI pipeline for plugin security scanning (ggshield, LLM prompt injection review).
+- Plugin update flow with versioning (`check`, `update` commands).
 - Admin panel for registry management.
+- Penetration testing with internal security tools.
 
 ### Phase 5: Open-source release
 - Clean up for public consumption.
 - Generic Postgres support (no Supabase dependency).
 - Documentation for self-hosting.
-- Choose and apply licence.
 - Announce.
 
 ---
@@ -594,10 +640,7 @@ openforge/
 
 | Item | Notes |
 |------|-------|
-| Licence | MIT or Apache 2.0 — to be decided |
-| Domain | `forge.gitguardian.com`? `openforge.dev`? Internal only initially? |
-| gg-agent-forge migration | Move from internal GitLab to GitHub — timing and process |
-| Slack app setup | New app or extend existing? |
+| Public domain | TBD — for the public/open community Forge instance. Internal is `openforge.gitguardian.com`. |
 | Claude Code security scan | Define the prompt/criteria for LLM-based plugin review |
-| Portal design | Wireframes/mockups needed before implementation |
-| CLI auth | Does the CLI need to authenticate with the portal? (For telemetry: no. For voting/commenting: yes, but that could be portal-only.) |
+| Forge design | Wireframes/mockups needed before Phase 2 implementation |
+| CLI auth | Does the CLI need to authenticate with the Forge? (For anonymous telemetry: no. For company instance with user tracking: yes.) |
