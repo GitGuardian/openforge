@@ -1,4 +1,32 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-sensitive-files.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-lint.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-test.sh"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "commit-commands@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
