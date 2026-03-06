@@ -61,3 +61,25 @@ def test_find_skills_agent_specific_dir(tmp_path: Path) -> None:
     (agent_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n")
     skills = find_skills_in_dir(tmp_path)
     assert len(skills) == 1
+
+
+def test_skill_path_is_directory_not_file(tmp_path: Path) -> None:
+    """skill.path must point to the directory containing SKILL.md, not the file itself."""
+    skills_dir = tmp_path / "skills" / "lint"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
+    skills = find_skills_in_dir(tmp_path)
+    assert len(skills) == 1
+    skill_path = Path(skills[0].path)
+    assert skill_path.is_dir(), f"Expected directory, got file: {skill_path}"
+    assert skill_path.name == "lint"
+
+
+def test_parse_skill_md_path_is_directory(tmp_path: Path) -> None:
+    """parse_skill_md should set path to the parent directory of SKILL.md."""
+    skill_dir = tmp_path / "my-skill"
+    skill_dir.mkdir()
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text("---\nname: my-skill\n---\n")
+    skill = parse_skill_md(skill_md)
+    assert Path(skill.path) == skill_dir

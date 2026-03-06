@@ -110,8 +110,8 @@ openforge/
         cli.py                  # Typer app, entry point
         add.py                  # add command
         remove.py               # remove command
-        find.py                 # find command
-        list.py                 # list command
+        find_cmd.py             # find command
+        list_cmd.py             # list command
         config.py               # config command
         agents/
           registry.py           # All 51 agent configs (data-driven)
@@ -184,6 +184,21 @@ All 51 agents are defined as `AgentConfig` entries in `cli/src/openforge/agents/
 
 **Telemetry must never block.**
 All telemetry calls are fire-and-forget. Never let a telemetry failure prevent a command from completing.
+
+### Testing and fixing
+
+**Use TDD red/green for all bug fixes.**
+When you find a bug or a test fails:
+1. **Red**: Write a failing test that reproduces the bug.
+2. **Green**: Fix the code to make the test pass.
+3. Verify all existing tests still pass (`uv run pytest`).
+4. Verify pyright still passes (`uv run pyright src/`).
+5. Only then commit the fix.
+
+Never fix a bug without a test that covers it. Never skip the verification step.
+
+**Run the full test suite before committing.**
+Always run `cd cli && uv run pytest && uv run pyright src/openforge/` before committing any change.
 
 ### General rules
 

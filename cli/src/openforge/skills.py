@@ -36,7 +36,7 @@ def parse_skill_md(path: Path) -> SkillInfo:
         name=name,
         description=description,
         tags=tags,
-        path=str(path),
+        path=str(path.parent),
     )
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from openforge.types import (
     ContentType,
     LockEntry,
     PluginInfo,
+    SkillInfo,
     SourceType,
 )
 
@@ -92,7 +94,12 @@ def add_command(
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="openforge-"))
     try:
-        git_sha = provider.fetch(parsed, tmp_dir)
+        try:
+            git_sha = provider.fetch(parsed, tmp_dir)
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr or ""
+            _console.print(f"[red]Failed to fetch {parsed.shorthand}: {stderr.strip()}[/red]")
+            raise typer.Exit(code=1) from None
         content_root = provider.content_root(parsed, tmp_dir)
         detected = detect_content(content_root)
 
@@ -112,16 +119,26 @@ def add_command(
 
         installed_agents: list[str] = []
 
-        # Install skills
+        # Install skills to canonical storage and update paths
+        canonical_skills: list[SkillInfo] = []
         for skill in skills:
             skill_source_dir = content_root / skill.path if skill.path else content_root
-            create_canonical_storage(
+            canonical_dest = create_canonical_storage(
                 source_dir=skill_source_dir,
                 project_dir=project_dir,
                 name=skill.name,
                 content_type=ContentType.SKILL,
                 is_global=is_global,
             )
+            canonical_skills.append(
+                SkillInfo(
+                    name=skill.name,
+                    description=skill.description,
+                    tags=skill.tags,
+                    path=str(canonical_dest),
+                )
+            )
+        skills = canonical_skills
 
         if skills:
             installed_agents = install_to_all_agents(
