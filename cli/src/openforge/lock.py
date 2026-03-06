@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from openforge.types import ContentType, LockEntry, LockFile, SourceType
+
+
+def _entry_to_dict(entry: LockEntry) -> dict[str, Any]:
+    """Serialise a LockEntry to a plain dict, converting enums to their values."""
+    return {
+        "type": entry.type.value,
+        "source": entry.source,
+        "source_type": entry.source_type.value,
+        "git_url": entry.git_url,
+        "git_sha": entry.git_sha,
+        "skills": entry.skills,
+        "agents_installed": entry.agents_installed,
+        "installed_at": entry.installed_at,
+        "updated_at": entry.updated_at,
+    }
+
+
+def _dict_to_entry(data: dict[str, Any]) -> LockEntry:
+    """Deserialise a plain dict into a LockEntry, mapping strings back to enums."""
+    return LockEntry(
+        type=ContentType(data["type"]),
+        source=data["source"],
+        source_type=SourceType(data["source_type"]),
+        git_url=data["git_url"],
+        git_sha=data["git_sha"],
+        skills=data["skills"],
+        agents_installed=data["agents_installed"],
+        installed_at=data["installed_at"],
+        updated_at=data["updated_at"],
+    )
+
+
+def read_lock(path: Path) -> LockFile:
+    """Read a lock file from *path*, returning an empty LockFile if the file is missing."""
+    if not path.exists():
+        return LockFile()
+
+    raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    entries: dict[str, LockEntry] = {
+        name: _dict_to_entry(entry_data)
+        for name, entry_data in raw.get("entries", {}).items()
+    }
+    return LockFile(version=raw.get("version", 1), entries=entries)
+
+
+def write_lock(path: Path, lock: LockFile) -> None:
+    """Write *lock* to *path* as formatted JSON with indent=2."""
+    payload: dict[str, Any] = {
+        "version": lock.version,
+        "entries": {
+            name: _entry_to_dict(entry)
+            for name, entry in lock.entries.items()
+        },
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def add_lock_entry(path: Path, name: str, entry: LockEntry) -> None:
+    """Add or update an entry in the lock file at *path*."""
+    lock = read_lock(path)
+    lock.entries[name] = entry
+    write_lock(path, lock)
+
+
+def remove_lock_entry(path: Path, name: str) -> None:
+    """Remove the entry keyed by *name* from the lock file at *path*."""
+    lock = read_lock(path)
+    lock.entries.pop(name, None)
+    write_lock(path, lock)
