@@ -36,3 +36,13 @@ drizzle/meta/
 
 # Worktrees (superpowers plugin)
 .worktrees/
+
+# Agent skill/config directories (created by openforge add)
+cli/.agents/
+cli/.claude/
+cli/.cursor/
+cli/.windsurf/
+cli/.gemini-cli/
+cli/.codex/
+cli/.amp/
+cli/.codeium/
