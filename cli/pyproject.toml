@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-openforge = "openforge.cli:app"
+openforge = "openforge.cli:main"
 
 [build-system]
 requires = ["hatchling"]
