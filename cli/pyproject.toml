@@ -2,7 +2,7 @@
 name = "openforge"
 version = "0.1.0"
 description = "CLI for installing and managing AI agent plugins across multiple agents"
-readme = "README.md"
+readme = "../README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -10,6 +10,8 @@ dependencies = [
     "httpx>=0.28.0",
     "rich>=13.9.0",
     "pyyaml>=6.0.0",
+    "tomli>=2.0.0; python_version < '3.11'",
+    "tomli-w>=1.0.0",
 ]
 
 [project.scripts]
