@@ -67,7 +67,8 @@ cd cli
 uv sync                  # Install dependencies
 uv run pytest            # Run tests
 uv run pyright           # Type check (strict mode)
-uv run openforge --help  # Run CLI locally
+uv run openforge --help     # Run CLI locally
+uv run openforge --version  # Show version
 uv run pre-commit run --all-files  # Run all pre-commit hooks
 ```
 
@@ -108,7 +109,7 @@ openforge/
     pyproject.toml
     src/
       openforge/
-        cli.py                  # Typer app, entry point
+        cli.py                  # Typer app, entry point, --version flag
         add.py                  # add command
         remove.py               # remove command
         find_cmd.py             # find command
