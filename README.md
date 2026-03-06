@@ -13,7 +13,7 @@ The canonical plugin format is Claude Code's `.claude-plugin/` structure. The CL
 
 ## Status
 
-Early development. See [tasks/prd-openforge-platform.md](tasks/prd-openforge-platform.md) for the full product requirements document.
+Early development. See [docs/plans/2026-03-06-openforge-platform.md](docs/plans/2026-03-06-openforge-platform.md) for the full product requirements document.
 
 ## Stack
 
