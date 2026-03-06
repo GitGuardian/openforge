@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import datetime
+import json
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -36,6 +38,124 @@ def _lock_file_path(project_dir: Path, is_global: bool) -> Path:
     if is_global:
         return get_user_config_dir() / "lock.json"
     return project_dir / ".openforge-lock.json"
+
+
+def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
+    """Read .mcp.json and return a mapping of server name to command string."""
+    mcp_path = plugin_dir / ".mcp.json"
+    if not mcp_path.is_file():
+        return {}
+    data: dict[str, Any] = json.loads(mcp_path.read_text(encoding="utf-8"))
+    servers: dict[str, Any] = cast(dict[str, Any], data.get("mcpServers", {}))
+    result: dict[str, str] = {}
+    for name, config in servers.items():
+        if not isinstance(config, dict):
+            result[str(name)] = str(config)
+            continue
+        typed_config = cast(dict[str, Any], config)
+        cmd: str = str(typed_config.get("command", ""))
+        args_val: Any = typed_config.get("args", [])
+        if isinstance(args_val, list):
+            args_list = cast(list[Any], args_val)
+            cmd_str = f"{cmd} {' '.join(str(a) for a in args_list)}".strip()
+        else:
+            cmd_str = cmd
+        result[str(name)] = cmd_str
+    return result
+
+
+def _collect_hooks(plugin_dir: Path) -> list[tuple[str, str]]:
+    """Read hooks.json and return a list of (event, command) tuples."""
+    # Check both possible locations for hooks.json
+    hooks_path = plugin_dir / ".claude" / "hooks.json"
+    if not hooks_path.is_file():
+        hooks_path = plugin_dir / "hooks" / "hooks.json"
+    if not hooks_path.is_file():
+        return []
+    data: dict[str, Any] = json.loads(hooks_path.read_text(encoding="utf-8"))
+    result: list[tuple[str, str]] = []
+    # hooks.json can be {"hooks": [...]} or {"PreToolUse": [...], ...}
+    hooks_val: Any = data.get("hooks", data)
+    if isinstance(hooks_val, dict):
+        hooks_dict = cast(dict[str, Any], hooks_val)
+        for event_name, entries in hooks_dict.items():
+            if not isinstance(entries, list):
+                continue
+            entries_list = cast(list[Any], entries)
+            for entry in entries_list:
+                if not isinstance(entry, dict):
+                    continue
+                typed_entry = cast(dict[str, Any], entry)
+                cmd = str(typed_entry.get("command", ""))
+                result.append((str(event_name), cmd))
+    elif isinstance(hooks_val, list):
+        hooks_list = cast(list[Any], hooks_val)
+        for entry in hooks_list:
+            if not isinstance(entry, dict):
+                continue
+            typed_entry2 = cast(dict[str, Any], entry)
+            event = str(typed_entry2.get("event", ""))
+            cmd = str(typed_entry2.get("command", ""))
+            result.append((event, cmd))
+    return result
+
+
+def _collect_commands(plugin_dir: Path) -> list[str]:
+    """List command file names from plugin_dir/commands/."""
+    commands_dir = plugin_dir / "commands"
+    if not commands_dir.is_dir():
+        return []
+    return sorted(f.name for f in commands_dir.iterdir() if f.is_file())
+
+
+def _has_executable_capabilities(plugin: PluginInfo) -> bool:
+    """Return True if the plugin has any executable capabilities (MCP, hooks, commands)."""
+    return plugin.has_mcp or plugin.has_hooks or plugin.has_commands
+
+
+def _display_capabilities_and_confirm(
+    plugin: PluginInfo,
+    plugin_dir: Path,
+    *,
+    auto_confirm: bool,
+) -> bool:
+    """Display what the plugin wants to install and ask for confirmation.
+
+    Returns True if the user confirms, False otherwise.
+    """
+    if not _has_executable_capabilities(plugin):
+        return True
+
+    _console.print(f'\nPlugin "{plugin.name}" wants to install:\n')
+
+    if plugin.has_mcp:
+        servers = _collect_mcp_servers(plugin_dir)
+        if servers:
+            _console.print("  [bold]MCP Servers:[/bold]")
+            for name, cmd in servers.items():
+                _console.print(f"    - {name} (command: {cmd})")
+            _console.print()
+
+    if plugin.has_hooks:
+        hooks = _collect_hooks(plugin_dir)
+        if hooks:
+            _console.print("  [bold]Hooks:[/bold]")
+            for event, cmd in hooks:
+                _console.print(f"    - {event}: {cmd}")
+            _console.print()
+
+    if plugin.has_commands:
+        commands = _collect_commands(plugin_dir)
+        if commands:
+            _console.print("  [bold]Commands:[/bold]")
+            for cmd_name in commands:
+                _console.print(f"    - {cmd_name}")
+            _console.print()
+
+    if auto_confirm:
+        return True
+
+    return typer.confirm("Install these plugin capabilities?", default=False)
 
 
 def _install_plugin_capabilities(
@@ -86,6 +206,9 @@ def add_command(
     is_global: bool = typer.Option(
         False, "--global", "-g", help="Install globally"
     ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Auto-confirm plugin capability installation"
+    ),
 ) -> None:
     """Add a plugin or skill from a source."""
     parsed = parse_source(source)
@@ -98,7 +221,9 @@ def add_command(
             git_sha = provider.fetch(parsed, tmp_dir)
         except subprocess.CalledProcessError as e:
             stderr = e.stderr or ""
-            _console.print(f"[red]Failed to fetch {parsed.shorthand}: {stderr.strip()}[/red]")
+            _console.print(
+                f"[red]Failed to fetch {parsed.shorthand}: {stderr.strip()}[/red]"
+            )
             raise typer.Exit(code=1) from None
         content_root = provider.content_root(parsed, tmp_dir)
         detected = detect_content(content_root)
@@ -122,7 +247,9 @@ def add_command(
         # Install skills to canonical storage and update paths
         canonical_skills: list[SkillInfo] = []
         for skill in skills:
-            skill_source_dir = content_root / skill.path if skill.path else content_root
+            skill_source_dir = (
+                content_root / skill.path if skill.path else content_root
+            )
             canonical_dest = create_canonical_storage(
                 source_dir=skill_source_dir,
                 project_dir=project_dir,
@@ -150,7 +277,10 @@ def add_command(
             )
 
         # Install plugin capabilities
-        if detected.content_type is ContentType.PLUGIN and detected.plugin is not None:
+        if (
+            detected.content_type is ContentType.PLUGIN
+            and detected.plugin is not None
+        ):
             plugin = detected.plugin
             plugin_dir = content_root
             create_canonical_storage(
@@ -160,7 +290,15 @@ def add_command(
                 content_type=ContentType.PLUGIN,
                 is_global=is_global,
             )
-            _install_plugin_capabilities(plugin, plugin_dir, project_dir)
+            confirmed = _display_capabilities_and_confirm(
+                plugin, plugin_dir, auto_confirm=yes
+            )
+            if confirmed:
+                _install_plugin_capabilities(plugin, plugin_dir, project_dir)
+            else:
+                _console.print(
+                    "[yellow]Skipped plugin capability installation.[/yellow]"
+                )
 
         # Write lock entry
         skill_names = [s.name for s in skills]
@@ -202,7 +340,10 @@ def add_command(
                 ", ".join(installed_agents) if installed_agents else "(none)",
             )
 
-        if detected.content_type is ContentType.PLUGIN and detected.plugin is not None:
+        if (
+            detected.content_type is ContentType.PLUGIN
+            and detected.plugin is not None
+        ):
             table.add_row(
                 detected.plugin.name,
                 "plugin",

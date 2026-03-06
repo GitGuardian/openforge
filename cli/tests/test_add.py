@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -8,7 +9,7 @@ from typer.testing import CliRunner
 
 import typer
 
-from openforge.types import Source, DetectedContent, ContentType, SkillInfo
+from openforge.types import Source, DetectedContent, ContentType, PluginInfo, SkillInfo
 
 
 def _fake_content_root(source: Source, dest: Path) -> Path:
@@ -200,3 +201,211 @@ def test_add_shows_friendly_error_on_clone_failure(tmp_path: Path) -> None:
         assert result.exit_code != 0
         output_lower = result.output.lower()
         assert "failed" in output_lower or "error" in output_lower or "could not" in output_lower
+
+
+def _setup_plugin_repo(dest: Path) -> None:
+    """Create a plugin repo structure with MCP, hooks, and commands at dest."""
+    dest.mkdir(parents=True, exist_ok=True)
+
+    plugin_dir = dest / ".claude-plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "plugin.json").write_text(
+        json.dumps({"name": "danger-plugin", "description": "A plugin"})
+    )
+
+    # MCP servers
+    (dest / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"evil-server": {"command": "node", "args": ["server.js"]}}})
+    )
+
+    # Hooks
+    hooks_dir = dest / ".claude"
+    hooks_dir.mkdir(parents=True)
+    (hooks_dir / "hooks.json").write_text(
+        json.dumps({
+            "hooks": [
+                {"event": "PreToolUse", "command": ".claude/hooks/check.sh"},
+                {"event": "PostToolUse", "command": ".claude/hooks/format.sh"},
+            ]
+        })
+    )
+
+    # Commands
+    commands_dir = dest / "commands"
+    commands_dir.mkdir()
+    (commands_dir / "review.md").write_text("# Review")
+    (commands_dir / "deploy.md").write_text("# Deploy")
+
+    # Skill
+    skill_dir = dest / "skills" / "helper"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n")
+
+
+def _make_plugin_detected(has_mcp: bool = True, has_hooks: bool = True, has_commands: bool = True) -> DetectedContent:
+    """Return a DetectedContent for a plugin with the specified capabilities."""
+    return DetectedContent(
+        content_type=ContentType.PLUGIN,
+        plugin=PluginInfo(
+            name="danger-plugin",
+            description="A plugin",
+            skills=(SkillInfo(name="helper", path="skills/helper"),),
+            has_mcp=has_mcp,
+            has_commands=has_commands,
+            has_hooks=has_hooks,
+        ),
+        skills=(SkillInfo(name="helper", path="skills/helper"),),
+    )
+
+
+def test_add_plugin_shows_confirmation_prompt(tmp_path: Path) -> None:
+    """When a plugin has MCP/hooks/commands, user sees a confirmation prompt."""
+    from openforge.add import add_command
+
+    test_app = typer.Typer()
+    test_app.command("add")(add_command)
+    runner = CliRunner()
+
+    with patch("openforge.add.GitHubProvider") as MockProvider, \
+         patch("openforge.add.detect_content") as mock_content, \
+         patch("openforge.add.detect_agents", return_value=[]), \
+         patch("openforge.add.get_project_dir", return_value=tmp_path), \
+         patch("openforge.add.send_event"):
+
+        def fake_fetch(source: Source, dest: Path) -> str:
+            _setup_plugin_repo(dest)
+            return "abc123"
+
+        MockProvider.return_value.fetch.side_effect = fake_fetch
+        MockProvider.return_value.content_root.side_effect = _fake_content_root
+
+        mock_content.return_value = _make_plugin_detected()
+
+        # Answer "y" to the confirmation prompt
+        result = runner.invoke(test_app, ["acme/plugin"], input="y\n")
+        assert result.exit_code == 0, result.output
+        # Should display what will be installed
+        assert "danger-plugin" in result.output
+        assert "MCP Servers" in result.output
+        assert "evil-server" in result.output
+        assert "Hooks" in result.output
+        assert "PreToolUse" in result.output
+        assert "Commands" in result.output
+        assert "review.md" in result.output
+        assert "deploy.md" in result.output
+
+
+def test_add_plugin_yes_flag_skips_confirmation(tmp_path: Path) -> None:
+    """The --yes flag auto-confirms without prompting."""
+    from openforge.add import add_command
+
+    test_app = typer.Typer()
+    test_app.command("add")(add_command)
+    runner = CliRunner()
+
+    with patch("openforge.add.GitHubProvider") as MockProvider, \
+         patch("openforge.add.detect_content") as mock_content, \
+         patch("openforge.add.detect_agents", return_value=[]), \
+         patch("openforge.add.get_project_dir", return_value=tmp_path), \
+         patch("openforge.add.send_event"):
+
+        def fake_fetch(source: Source, dest: Path) -> str:
+            _setup_plugin_repo(dest)
+            return "abc123"
+
+        MockProvider.return_value.fetch.side_effect = fake_fetch
+        MockProvider.return_value.content_root.side_effect = _fake_content_root
+
+        mock_content.return_value = _make_plugin_detected()
+
+        # No input needed with --yes
+        result = runner.invoke(test_app, ["acme/plugin", "--yes"])
+        assert result.exit_code == 0, result.output
+        # Should still display capabilities
+        assert "danger-plugin" in result.output
+        assert "MCP Servers" in result.output
+        # Should NOT show the confirmation prompt text in output since it was auto-confirmed
+        assert "Install these plugin capabilities?" not in result.output
+
+
+def test_add_plugin_decline_skips_capabilities_but_installs_skills(tmp_path: Path) -> None:
+    """Declining the prompt skips MCP/hooks/commands but still installs skills."""
+    from openforge.add import add_command
+
+    test_app = typer.Typer()
+    test_app.command("add")(add_command)
+    runner = CliRunner()
+
+    with patch("openforge.add.GitHubProvider") as MockProvider, \
+         patch("openforge.add.detect_content") as mock_content, \
+         patch("openforge.add.detect_agents", return_value=[]), \
+         patch("openforge.add._install_plugin_capabilities") as mock_install_caps, \
+         patch("openforge.add.get_project_dir", return_value=tmp_path), \
+         patch("openforge.add.send_event"):
+
+        def fake_fetch(source: Source, dest: Path) -> str:
+            _setup_plugin_repo(dest)
+            return "abc123"
+
+        MockProvider.return_value.fetch.side_effect = fake_fetch
+        MockProvider.return_value.content_root.side_effect = _fake_content_root
+
+        mock_content.return_value = _make_plugin_detected()
+
+        # Answer "n" to decline
+        result = runner.invoke(test_app, ["acme/plugin"], input="n\n")
+        assert result.exit_code == 0, result.output
+        # Plugin capabilities should NOT be installed
+        mock_install_caps.assert_not_called()
+        # Should show skip message
+        assert "Skipped" in result.output
+        # Skills should still be installed (skill appears in summary table)
+        assert "helper" in result.output
+
+
+def test_add_plugin_no_capabilities_skips_confirmation(tmp_path: Path) -> None:
+    """A plugin with no MCP/hooks/commands does not prompt for confirmation."""
+    from openforge.add import add_command
+
+    test_app = typer.Typer()
+    test_app.command("add")(add_command)
+    runner = CliRunner()
+
+    with patch("openforge.add.GitHubProvider") as MockProvider, \
+         patch("openforge.add.detect_content") as mock_content, \
+         patch("openforge.add.detect_agents", return_value=[]), \
+         patch("openforge.add.get_project_dir", return_value=tmp_path), \
+         patch("openforge.add.send_event"):
+
+        def fake_fetch(source: Source, dest: Path) -> str:
+            dest.mkdir(parents=True, exist_ok=True)
+            plugin_dir = dest / ".claude-plugin"
+            plugin_dir.mkdir()
+            (plugin_dir / "plugin.json").write_text(
+                json.dumps({"name": "safe-plugin", "description": "No caps"})
+            )
+            skill_dir = dest / "skills" / "helper"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n")
+            return "abc123"
+
+        MockProvider.return_value.fetch.side_effect = fake_fetch
+        MockProvider.return_value.content_root.side_effect = _fake_content_root
+
+        mock_content.return_value = DetectedContent(
+            content_type=ContentType.PLUGIN,
+            plugin=PluginInfo(
+                name="safe-plugin",
+                description="No caps",
+                skills=(SkillInfo(name="helper", path="skills/helper"),),
+                has_mcp=False,
+                has_commands=False,
+                has_hooks=False,
+            ),
+            skills=(SkillInfo(name="helper", path="skills/helper"),),
+        )
+
+        # No input provided -- should not prompt
+        result = runner.invoke(test_app, ["acme/safe-plugin"])
+        assert result.exit_code == 0, result.output
+        assert "Install these plugin capabilities?" not in result.output
