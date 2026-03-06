@@ -1,12 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Sequence
 from pathlib import Path
 
 from openforge.agents.base import AgentConfig
 from openforge.agents.registry import detect_agents, get_agent
 from openforge.types import ContentType, SkillInfo
+from openforge.validation import validate_name
 
 
 def _canonical_base(
@@ -32,11 +35,12 @@ def create_canonical_storage(
 
     Returns the destination path.
     """
+    validate_name(name)
     base = _canonical_base(project_dir, content_type, is_global)
     dest = base / name
     if dest.exists():
         shutil.rmtree(dest)
-    shutil.copytree(source_dir, dest)
+    shutil.copytree(source_dir, dest, symlinks=True)
     return dest
 
 
@@ -91,7 +95,7 @@ def install_skills_to_agent(
 
 def remove_skills_from_agent(
     agent: AgentConfig,
-    skill_names: list[str],
+    skill_names: Sequence[str],
     project_dir: Path,
     is_global: bool,
 ) -> None:

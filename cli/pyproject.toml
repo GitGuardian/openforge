@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "tomli>=2.0.0; python_version < '3.11'",
     "tomli-w>=1.0.0",
+    "platformdirs>=4.0.0",
 ]
 
 [project.scripts]
@@ -37,4 +38,29 @@ testpaths = ["tests"]
 dev = [
     "pyright>=1.1.390",
     "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "bandit>=1.8.0",
 ]
+
+[tool.coverage.run]
+source = ["openforge"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

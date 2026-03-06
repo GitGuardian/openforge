@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 from openforge.types import Source, ContentType, SkillInfo, PluginInfo, DetectedContent, LockEntry, LockFile, SourceType

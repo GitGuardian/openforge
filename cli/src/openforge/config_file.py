@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 import os
@@ -11,7 +12,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # pyright: ignore[reportMissingImports]
 
-import tomli_w
+from platformdirs import user_config_dir
 
 # ---------------------------------------------------------------------------
 # CI environment variables that signal a CI environment (disables telemetry)
@@ -58,7 +59,7 @@ _DEFAULTS: dict[str, str] = {
 
 
 def _default_user_config_dir() -> Path:
-    return Path.home() / ".config" / "openforge"
+    return Path(user_config_dir("openforge"))
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -82,7 +83,7 @@ def _get_nested(data: dict[str, Any], dotted_key: str) -> str | None:
     return str(current)  # pyright: ignore[reportUnknownArgumentType]
 
 
-def _set_nested(data: dict[str, Any], dotted_key: str, value: str) -> None:
+def _set_nested(data: dict[str, Any], dotted_key: str, value: object) -> None:
     """Set a value in a nested dict using a dotted key."""
     keys = dotted_key.split(".")
     current = data
@@ -212,18 +213,37 @@ def set_config_value(
 ) -> None:
     """Write a config value to the user-level config TOML file."""
 
+    if key not in _DEFAULTS:
+        msg = f"Unknown config key: {key!r}. Valid keys: {', '.join(sorted(_DEFAULTS))}"
+        raise ValueError(msg)
+
     user_dir = user_config_dir or _default_user_config_dir()
     config_path = user_dir / "config.toml"
 
     # Read existing data
     data = _read_toml(config_path)
 
+    # Coerce string values to proper types for known keys
+    typed_value: object
+    if key == "telemetry.enabled":
+        if value.lower() in ("true", "1", "yes"):
+            typed_value = True
+        elif value.lower() in ("false", "0", "no"):
+            typed_value = False
+        else:
+            typed_value = value
+    else:
+        typed_value = value
+
     # Set the value
-    _set_nested(data, key, value)
+    _set_nested(data, key, typed_value)
 
-    # Ensure directory exists
-    user_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure directory exists with restrictive permissions
+    os.makedirs(user_dir, mode=0o700, exist_ok=True)
 
-    # Write back
+    # Write back with restrictive permissions
+    import tomli_w
+
     with open(config_path, "wb") as f:
         tomli_w.dump(data, f)
+    os.chmod(config_path, 0o600)

@@ -1,15 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
-
-from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from openforge.cli import get_project_dir
-from openforge.lock import read_lock
+from openforge.lock import lock_file_path, read_lock
 from openforge.telemetry import send_event
 from openforge.types import LockEntry
+
+_console = Console()
 
 
 def find_command(
@@ -17,12 +18,8 @@ def find_command(
     is_global: bool = typer.Option(False, "--global", "-g", help="Search globally installed"),
 ) -> None:
     """Search installed plugins and skills by name or skill."""
-    if is_global:
-        project_dir = Path.home() / ".config" / "openforge"
-        lock_path = project_dir / "lock.json"
-    else:
-        project_dir = get_project_dir()
-        lock_path = project_dir / ".openforge-lock.json"
+    project_dir = get_project_dir()
+    lock_path = lock_file_path(project_dir, is_global=is_global)
 
     lock = read_lock(lock_path)
 
@@ -37,12 +34,10 @@ def find_command(
                 matches[name] = entry
                 break
 
-    send_event("find", {"query": query, "results_count": len(matches)})
-
-    console = Console()
+    send_event("find", {"results_count": len(matches)})
 
     if not matches:
-        console.print("No results found.")
+        _console.print("No results found.")
         return
 
     table = Table(title="Search Results")
@@ -59,4 +54,4 @@ def find_command(
             ", ".join(entry.skills),
         )
 
-    console.print(table)
+    _console.print(table)

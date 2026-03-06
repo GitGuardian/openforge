@@ -1,10 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from openforge.types import ContentType, LockEntry, LockFile, SourceType
+
+
+def lock_file_path(project_dir: Path, *, is_global: bool) -> Path:
+    """Return the lock file path for project-local or global installs."""
+    if is_global:
+        from openforge.cli import get_user_config_dir
+
+        return get_user_config_dir() / "lock.json"
+    return project_dir / ".openforge-lock.json"
 
 
 def _entry_to_dict(entry: LockEntry) -> dict[str, Any]:
@@ -15,8 +26,8 @@ def _entry_to_dict(entry: LockEntry) -> dict[str, Any]:
         "source_type": entry.source_type.value,
         "git_url": entry.git_url,
         "git_sha": entry.git_sha,
-        "skills": entry.skills,
-        "agents_installed": entry.agents_installed,
+        "skills": list(entry.skills),
+        "agents_installed": list(entry.agents_installed),
         "installed_at": entry.installed_at,
         "updated_at": entry.updated_at,
     }
@@ -30,8 +41,8 @@ def _dict_to_entry(data: dict[str, Any]) -> LockEntry:
         source_type=SourceType(data["source_type"]),
         git_url=data["git_url"],
         git_sha=data["git_sha"],
-        skills=data["skills"],
-        agents_installed=data["agents_installed"],
+        skills=tuple(data["skills"]),
+        agents_installed=tuple(data["agents_installed"]),
         installed_at=data["installed_at"],
         updated_at=data["updated_at"],
     )
@@ -51,7 +62,12 @@ def read_lock(path: Path) -> LockFile:
 
 
 def write_lock(path: Path, lock: LockFile) -> None:
-    """Write *lock* to *path* as formatted JSON with indent=2."""
+    """Write *lock* to *path* as formatted JSON with indent=2.
+
+    Uses atomic write (write-to-temp-then-rename) and sets restrictive
+    permissions (0o600) on the resulting file.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
         "version": lock.version,
         "entries": {
@@ -59,7 +75,11 @@ def write_lock(path: Path, lock: LockFile) -> None:
             for name, entry in lock.entries.items()
         },
     }
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    content = json.dumps(payload, indent=2) + "\n"
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(content, encoding="utf-8")
+    os.chmod(tmp_path, 0o600)
+    os.replace(tmp_path, path)
 
 
 def add_lock_entry(path: Path, name: str, entry: LockEntry) -> None:

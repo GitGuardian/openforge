@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 import json
@@ -8,6 +9,8 @@ from pathlib import Path
 def install_mcp_config(*, plugin_dir: Path, project_dir: Path) -> None:
     """Read ``.mcp.json`` from *plugin_dir* and merge into ``project_dir/.cursor/mcp.json``."""
     source_path = plugin_dir / ".mcp.json"
+    if not source_path.exists():
+        return
     source_data: dict[str, dict[str, object]] = json.loads(source_path.read_text())
     new_servers: dict[str, object] = source_data.get("mcpServers", {})
 

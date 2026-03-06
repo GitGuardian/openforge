@@ -68,6 +68,7 @@ uv sync                  # Install dependencies
 uv run pytest            # Run tests
 uv run pyright           # Type check (strict mode)
 uv run openforge --help  # Run CLI locally
+uv run pre-commit run --all-files  # Run all pre-commit hooks
 ```
 
 ---
@@ -196,6 +197,8 @@ When you find a bug or a test fails:
 5. Only then commit the fix.
 
 Never fix a bug without a test that covers it. Never skip the verification step.
+
+**Coverage minimum is 90%.** Enforced by pre-commit hook. Run `cd cli && uv run pytest --cov --cov-fail-under=90` to check locally.
 
 **Run the full test suite before committing.**
 Always run `cd cli && uv run pytest && uv run pyright src/openforge/` before committing any change.

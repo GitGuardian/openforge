@@ -1,13 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
-
-from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from openforge.cli import get_project_dir
-from openforge.lock import read_lock
+from openforge.lock import lock_file_path, read_lock
+
+_console = Console()
 
 
 def list_command(
@@ -15,18 +16,13 @@ def list_command(
     agent: str | None = typer.Option(None, "--agent", "-a", help="Filter by agent"),
 ) -> None:
     """List installed plugins and skills."""
-    if is_global:
-        project_dir = Path.home() / ".config" / "openforge"
-        lock_path = project_dir / "lock.json"
-    else:
-        project_dir = get_project_dir()
-        lock_path = project_dir / ".openforge-lock.json"
+    project_dir = get_project_dir()
+    lock_path = lock_file_path(project_dir, is_global=is_global)
 
     lock = read_lock(lock_path)
 
     if not lock.entries:
-        console = Console()
-        console.print("No plugins or skills installed.")
+        _console.print("No plugins or skills installed.")
         return
 
     # Apply agent filter if requested
@@ -37,8 +33,7 @@ def list_command(
         filtered_names.append(name)
 
     if not filtered_names:
-        console = Console()
-        console.print(f"No plugins or skills installed for agent '{agent}'.")
+        _console.print(f"No plugins or skills installed for agent '{agent}'.")
         return
 
     table = Table(title="Installed Plugins & Skills")
@@ -58,5 +53,4 @@ def list_command(
             ", ".join(entry.agents_installed),
         )
 
-    console = Console()
-    console.print(table)
+    _console.print(table)

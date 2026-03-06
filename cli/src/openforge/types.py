@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -61,10 +62,11 @@ class DetectedContent:
     """What the CLI found after scanning a fetched repo."""
     content_type: ContentType
     plugin: PluginInfo | None = None
+    plugins: tuple[PluginInfo, ...] = ()
     skills: tuple[SkillInfo, ...] = ()
 
 
-@dataclass
+@dataclass(frozen=True)
 class LockEntry:
     """One entry in the lock file."""
     type: ContentType
@@ -72,8 +74,8 @@ class LockEntry:
     source_type: SourceType
     git_url: str
     git_sha: str
-    skills: list[str]
-    agents_installed: list[str]
+    skills: tuple[str, ...]
+    agents_installed: tuple[str, ...]
     installed_at: str
     updated_at: str
 
@@ -82,4 +84,4 @@ class LockEntry:
 class LockFile:
     """The full .openforge-lock.json contents."""
     version: int = 1
-    entries: dict[str, LockEntry] = field(default_factory=lambda: dict[str, LockEntry]())
+    entries: dict[str, LockEntry] = field(default_factory=lambda: {})
