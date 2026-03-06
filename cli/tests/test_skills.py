@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from openforge.skills import parse_skill_md, find_skills_in_dir
 
 
@@ -83,3 +85,70 @@ def test_parse_skill_md_path_is_directory(tmp_path: Path) -> None:
     skill_md.write_text("---\nname: my-skill\n---\n")
     skill = parse_skill_md(skill_md)
     assert Path(skill.path) == skill_dir
+
+
+def test_parse_skill_md_invalid_name_rejected(tmp_path: Path) -> None:
+    """Skill names with path traversal chars must be rejected."""
+    skill_dir = tmp_path / "evil"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: ../etc/passwd\n---\n")
+    with pytest.raises(ValueError, match="Invalid skill name"):
+        parse_skill_md(skill_dir / "SKILL.md")
+
+
+def test_parse_skill_md_name_with_spaces_rejected(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "evil"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: my bad skill\n---\n")
+    with pytest.raises(ValueError, match="Invalid skill name"):
+        parse_skill_md(skill_dir / "SKILL.md")
+
+
+def test_find_skills_rglob_skips_git_dir(tmp_path: Path) -> None:
+    """rglob fallback must skip .git directories."""
+    git_dir = tmp_path / ".git" / "hooks"
+    git_dir.mkdir(parents=True)
+    (git_dir / "SKILL.md").write_text("---\nname: evil\n---\n")
+    skills = find_skills_in_dir(tmp_path)
+    assert len(skills) == 0
+
+
+def test_find_skills_rglob_skips_node_modules(tmp_path: Path) -> None:
+    """rglob fallback must skip node_modules."""
+    nm_dir = tmp_path / "node_modules" / "pkg"
+    nm_dir.mkdir(parents=True)
+    (nm_dir / "SKILL.md").write_text("---\nname: evil\n---\n")
+    skills = find_skills_in_dir(tmp_path)
+    assert len(skills) == 0
+
+
+def test_find_skills_rglob_skips_pycache(tmp_path: Path) -> None:
+    """rglob fallback must skip __pycache__."""
+    pc_dir = tmp_path / "__pycache__"
+    pc_dir.mkdir(parents=True)
+    (pc_dir / "SKILL.md").write_text("---\nname: evil\n---\n")
+    skills = find_skills_in_dir(tmp_path)
+    assert len(skills) == 0
+
+
+def test_find_skills_rglob_skips_vendor(tmp_path: Path) -> None:
+    """rglob fallback must skip vendor."""
+    vendor_dir = tmp_path / "vendor" / "pkg"
+    vendor_dir.mkdir(parents=True)
+    (vendor_dir / "SKILL.md").write_text("---\nname: evil\n---\n")
+    skills = find_skills_in_dir(tmp_path)
+    assert len(skills) == 0
+
+
+def test_find_skills_rglob_containment(tmp_path: Path) -> None:
+    """rglob fallback must validate paths are within root."""
+    # Create a valid skill outside root, symlinked in
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "SKILL.md").write_text("---\nname: outside-skill\n---\n")
+    link = tmp_path / "sandbox" / "sneaky"
+    (tmp_path / "sandbox").mkdir()
+    link.symlink_to(outside)
+    # The skill in the symlinked dir should be skipped
+    skills = find_skills_in_dir(tmp_path / "sandbox")
+    assert len(skills) == 0

@@ -7,6 +7,7 @@ from pathlib import Path
 from openforge.agents.base import AgentConfig
 from openforge.agents.registry import detect_agents, get_agent
 from openforge.types import ContentType, SkillInfo
+from openforge.validation import validate_name
 
 
 def _canonical_base(
@@ -32,11 +33,12 @@ def create_canonical_storage(
 
     Returns the destination path.
     """
+    validate_name(name)
     base = _canonical_base(project_dir, content_type, is_global)
     dest = base / name
     if dest.exists():
         shutil.rmtree(dest)
-    shutil.copytree(source_dir, dest)
+    shutil.copytree(source_dir, dest, symlinks=True)
     return dest
 
 

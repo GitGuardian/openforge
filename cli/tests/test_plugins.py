@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from openforge.plugins import parse_plugin, parse_marketplace, detect_content
 from openforge.types import ContentType
 
@@ -74,3 +76,21 @@ def test_detect_content_skill(tmp_path: Path) -> None:
     content = detect_content(tmp_path)
     assert content.content_type == ContentType.SKILL
     assert len(content.skills) == 1
+
+
+def test_parse_plugin_invalid_name_rejected(tmp_path: Path) -> None:
+    """Plugin names with invalid chars must be rejected."""
+    plugin_dir = tmp_path / ".claude-plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "plugin.json").write_text(json.dumps({"name": "../evil"}))
+    with pytest.raises(ValueError, match="Invalid plugin name"):
+        parse_plugin(tmp_path)
+
+
+def test_parse_marketplace_path_traversal_rejected(tmp_path: Path) -> None:
+    """Marketplace plugin paths that escape root must be rejected."""
+    (tmp_path / "marketplace.json").write_text(json.dumps({
+        "plugins": [{"name": "evil", "path": "../../etc"}]
+    }))
+    with pytest.raises(ValueError, match="Path escape detected"):
+        parse_marketplace(tmp_path)

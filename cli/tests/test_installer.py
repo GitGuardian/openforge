@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from openforge.installer import (
     install_skills_to_agent,
     create_canonical_storage,
@@ -90,3 +92,36 @@ def test_remove_canonical_storage(tmp_path: Path) -> None:
         is_global=False,
     )
     assert not skill_dir.exists()
+
+
+def test_create_canonical_storage_invalid_name_rejected(tmp_path: Path) -> None:
+    """Names with path traversal chars must be rejected."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "SKILL.md").write_text("test")
+    with pytest.raises(ValueError, match="Invalid name"):
+        create_canonical_storage(
+            source_dir=source_dir,
+            project_dir=tmp_path / "project",
+            name="../evil",
+            content_type=ContentType.SKILL,
+            is_global=False,
+        )
+
+
+def test_create_canonical_storage_preserves_symlinks(tmp_path: Path) -> None:
+    """copytree should preserve symlinks rather than following them."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "real.txt").write_text("real content")
+    (source_dir / "link.txt").symlink_to(source_dir / "real.txt")
+
+    dest = create_canonical_storage(
+        source_dir=source_dir,
+        project_dir=tmp_path / "project",
+        name="test-skill",
+        content_type=ContentType.SKILL,
+        is_global=False,
+    )
+    link = dest / "link.txt"
+    assert link.is_symlink(), "Symlinks should be preserved, not followed"

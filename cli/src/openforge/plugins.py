@@ -6,6 +6,7 @@ from typing import Any
 
 from openforge.skills import find_skills_in_dir
 from openforge.types import ContentType, DetectedContent, PluginInfo
+from openforge.validation import validate_name, validate_path_containment
 
 
 def parse_plugin(root: Path) -> PluginInfo:
@@ -14,6 +15,7 @@ def parse_plugin(root: Path) -> PluginInfo:
     data: dict[str, Any] = json.loads(plugin_json_path.read_text(encoding="utf-8"))
 
     name = str(data.get("name", root.name))
+    validate_name(name, kind="plugin name")
     description = str(data.get("description", ""))
 
     skills = tuple(find_skills_in_dir(root))
@@ -49,6 +51,7 @@ def parse_marketplace(root: Path) -> list[PluginInfo]:
         if not path_str:
             continue
         plugin_root = root / path_str
+        validate_path_containment(plugin_root, root)
         results.append(parse_plugin(plugin_root))
 
     return results

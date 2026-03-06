@@ -6,11 +6,11 @@ from openforge.types import Source
 
 
 _GITHUB_URL_RE = re.compile(
-    r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/tree/(?P<ref>[^/]+)(?:/(?P<subdir>.+))?)?/?$"
+    r"^https://github\.com/(?P<owner>[a-zA-Z0-9_.-]+)/(?P<repo>[a-zA-Z0-9_.-]+?)(?:\.git)?(?:/tree/(?P<ref>[^/]+)(?:/(?P<subdir>.+))?)?/?$"
 )
 
 _SHORTHAND_RE = re.compile(
-    r"^(?P<owner>[^/@]+)/(?P<repo>[^/@]+)(?:@(?P<skill>[^/]+))?(?:/(?P<subdir>.+))?$"
+    r"^(?P<owner>[a-zA-Z0-9_.-]+)/(?P<repo>[a-zA-Z0-9_.-]+)(?:@(?P<skill>[^/]+))?(?:/(?P<subdir>.+))?$"
 )
 
 
@@ -30,6 +30,9 @@ def parse_source(raw: str) -> Source:
 
     # Try GitHub URL first
     if raw.startswith(("http://", "https://")):
+        if raw.startswith("http://"):
+            msg = f"HTTPS required: {raw!r}. Plain HTTP URLs are not allowed."
+            raise ValueError(msg)
         m = _GITHUB_URL_RE.match(raw)
         if not m:
             raise ValueError(f"Invalid source URL: {raw}")

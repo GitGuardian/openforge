@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from openforge.types import Source
+from openforge.validation import validate_path_containment
 
 
 class GitHubProvider:
@@ -36,5 +37,7 @@ class GitHubProvider:
     def content_root(self, source: Source, dest: Path) -> Path:
         """Return the content root within the cloned repo."""
         if source.subdir:
-            return dest / source.subdir
+            result = dest / source.subdir
+            validate_path_containment(result, dest)
+            return result
         return dest

@@ -6,6 +6,9 @@ from typing import cast
 import yaml
 
 from openforge.types import SkillInfo
+from openforge.validation import validate_name, validate_path_containment
+
+_RGLOB_EXCLUDED_DIRS = frozenset({".git", "node_modules", "__pycache__", "vendor"})
 
 
 def parse_skill_md(path: Path) -> SkillInfo:
@@ -31,6 +34,8 @@ def parse_skill_md(path: Path) -> SkillInfo:
 
     if not name:
         name = path.parent.name
+
+    validate_name(name, kind="skill name")
 
     return SkillInfo(
         name=name,
@@ -94,6 +99,14 @@ def find_skills_in_dir(root: Path) -> list[SkillInfo]:
 
     # 5. Recursive fallback
     for skill_md in sorted(root.rglob("SKILL.md")):
+        # Skip excluded directories
+        if _RGLOB_EXCLUDED_DIRS.intersection(skill_md.parts):
+            continue
+        # Validate path is within root
+        try:
+            validate_path_containment(skill_md, root)
+        except ValueError:
+            continue
         results.append(parse_skill_md(skill_md))
 
     return results
