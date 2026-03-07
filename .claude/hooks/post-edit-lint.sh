@@ -1,18 +1,28 @@
 #!/bin/bash
-# PostToolUse hook: auto-lint and format Python files after Edit/Write
-# Reads tool input from stdin (JSON), extracts file_path, runs ruff
+# PostToolUse hook: auto-lint after Edit/Write
+# Python files: ruff check + format
+# TypeScript files: tsc typecheck
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
-# Only process Python files
-if [[ -z "$FILE_PATH" || "$FILE_PATH" != *.py ]]; then
+if [[ -z "$FILE_PATH" ]]; then
   exit 0
 fi
 
-# Run ruff check (auto-fix) then format
 cd "$(echo "$INPUT" | jq -r '.cwd')"
-uv run ruff check --fix "$FILE_PATH" 2>&1
-uv run ruff format "$FILE_PATH" 2>&1
+
+# Python files — ruff
+if [[ "$FILE_PATH" == *.py ]]; then
+  uv run ruff check --fix "$FILE_PATH" 2>&1
+  uv run ruff format "$FILE_PATH" 2>&1
+  exit 0
+fi
+
+# TypeScript files in forge/ — typecheck
+if [[ "$FILE_PATH" == *.ts && "$FILE_PATH" == *forge/* ]]; then
+  cd forge && bun run typecheck 2>&1
+  exit 0
+fi
 
 exit 0

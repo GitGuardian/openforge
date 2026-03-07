@@ -33,3 +33,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: typecheck-forge
+        name: typecheck (forge)
+        entry: bash -c 'cd forge && bun run typecheck'
+        language: system
+        types: [ts]
+        files: ^forge/
+        pass_filenames: false

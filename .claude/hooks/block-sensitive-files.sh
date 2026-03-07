@@ -17,9 +17,14 @@ if [[ "$BASENAME" == .env || "$BASENAME" == .env.* ]]; then
   exit 2
 fi
 
-# Block uv.lock (managed by uv sync)
+# Block lock files (managed by package managers)
 if [[ "$BASENAME" == "uv.lock" ]]; then
   echo "BLOCKED: uv.lock is managed by uv sync. Don't edit directly." >&2
+  exit 2
+fi
+
+if [[ "$BASENAME" == "bun.lock" || "$BASENAME" == "bun.lockb" ]]; then
+  echo "BLOCKED: bun.lock is managed by bun install. Don't edit directly." >&2
   exit 2
 fi
 
