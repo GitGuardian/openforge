@@ -37,8 +37,13 @@ drizzle/meta/
 # Worktrees (superpowers plugin)
 .worktrees/
 
+# Test artifacts
+.coverage
+*.openforge-lock.json
+
 # Agent skill/config directories (created by openforge add)
 cli/.agents/
+cli/.antigravity/
 cli/.claude/
 cli/.cursor/
 cli/.windsurf/
