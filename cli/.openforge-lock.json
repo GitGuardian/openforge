@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "entries": {
+    "vercel-labs/agent-skills": {
+      "type": "skill",
+      "source": "vercel-labs/agent-skills",
+      "source_type": "github",
+      "git_url": "https://github.com/vercel-labs/agent-skills",
+      "git_sha": "64bee5b7ea30702448e2aed774eb361914029944",
+      "skills": [
+        "vercel-composition-patterns",
+        "deploy-to-vercel",
+        "vercel-react-best-practices",
+        "vercel-react-native-skills",
+        "web-design-guidelines"
+      ],
+      "agents_installed": [
+        "claude-code",
+        "cursor",
+        "windsurf",
+        "gemini-cli",
+        "codex",
+        "amp",
+        "codeium"
+      ],
+      "installed_at": "2026-03-06T17:40:42.432359+00:00",
+      "updated_at": "2026-03-06T17:40:42.432359+00:00"
+    }
+  }
+}

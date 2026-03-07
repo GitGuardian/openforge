@@ -17,6 +17,7 @@ class SourceType(Enum):
 @dataclass(frozen=True)
 class Source:
     """Parsed source reference (e.g. owner/repo@skill-name)."""
+
     owner: str
     repo: str
     skill_name: str | None = None
@@ -38,6 +39,7 @@ class Source:
 @dataclass(frozen=True)
 class SkillInfo:
     """Parsed skill metadata from SKILL.md frontmatter."""
+
     name: str
     description: str = ""
     tags: tuple[str, ...] = ()
@@ -47,6 +49,7 @@ class SkillInfo:
 @dataclass(frozen=True)
 class PluginInfo:
     """Parsed plugin metadata from plugin.json."""
+
     name: str
     description: str = ""
     skills: tuple[SkillInfo, ...] = ()
@@ -60,6 +63,7 @@ class PluginInfo:
 @dataclass(frozen=True)
 class DetectedContent:
     """What the CLI found after scanning a fetched repo."""
+
     content_type: ContentType
     plugin: PluginInfo | None = None
     plugins: tuple[PluginInfo, ...] = ()
@@ -69,6 +73,7 @@ class DetectedContent:
 @dataclass(frozen=True)
 class LockEntry:
     """One entry in the lock file."""
+
     type: ContentType
     source: str
     source_type: SourceType
@@ -83,5 +88,6 @@ class LockEntry:
 @dataclass
 class LockFile:
     """The full .openforge-lock.json contents."""
+
     version: int = 1
     entries: dict[str, LockEntry] = field(default_factory=lambda: {})

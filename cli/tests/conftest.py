@@ -50,8 +50,6 @@ def sample_plugin_repo(tmp_path: Path) -> Path:
     commands_dir.mkdir()
     (commands_dir / "deploy.md").write_text("# Deploy\nDeploy things.")
 
-    (repo / ".mcp.json").write_text(
-        json.dumps({"mcpServers": {"test": {"command": "echo"}}})
-    )
+    (repo / ".mcp.json").write_text(json.dumps({"mcpServers": {"test": {"command": "echo"}}}))
 
     return repo

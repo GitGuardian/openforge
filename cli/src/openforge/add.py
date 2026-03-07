@@ -38,9 +38,7 @@ def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
     mcp_path = plugin_dir / ".mcp.json"
     if not mcp_path.is_file():
         return {}
-    data = cast(
-        dict[str, Any], json.loads(mcp_path.read_text(encoding="utf-8"))
-    )
+    data = cast(dict[str, Any], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, Any], data.get("mcpServers", {}))
     result: dict[str, str] = {}
     for name, config in servers.items():
@@ -52,9 +50,7 @@ def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
         args_val: object = typed_config.get("args", [])
         if isinstance(args_val, list):
             args_list = cast(list[Any], args_val)
-            cmd_str = (
-                f"{cmd} {' '.join(str(a) for a in args_list)}".strip()
-            )
+            cmd_str = f"{cmd} {' '.join(str(a) for a in args_list)}".strip()
         else:
             cmd_str = cmd
         result[str(name)] = cmd_str
@@ -69,9 +65,7 @@ def _collect_hooks(plugin_dir: Path) -> list[tuple[str, str]]:
         hooks_path = plugin_dir / "hooks" / "hooks.json"
     if not hooks_path.is_file():
         return []
-    data = cast(
-        dict[str, Any], json.loads(hooks_path.read_text(encoding="utf-8"))
-    )
+    data = cast(dict[str, Any], json.loads(hooks_path.read_text(encoding="utf-8")))
     result: list[tuple[str, str]] = []
     # hooks.json can be {"hooks": [...]} or {"PreToolUse": [...], ...}
     hooks_val: Any = data.get("hooks", data)
@@ -199,15 +193,9 @@ def _install_plugin_capabilities(
 
 
 def add_command(
-    source: str = typer.Argument(
-        ..., help="Plugin/skill source (owner/repo, owner/repo@skill)"
-    ),
-    agent: str | None = typer.Option(
-        None, "--agent", "-a", help="Target specific agent"
-    ),
-    is_global: bool = typer.Option(
-        False, "--global", "-g", help="Install globally"
-    ),
+    source: str = typer.Argument(..., help="Plugin/skill source (owner/repo, owner/repo@skill)"),
+    agent: str | None = typer.Option(None, "--agent", "-a", help="Target specific agent"),
+    is_global: bool = typer.Option(False, "--global", "-g", help="Install globally"),
     yes: bool = typer.Option(
         False, "--yes", "-y", help="Auto-confirm plugin capability installation"
     ),
@@ -223,9 +211,7 @@ def add_command(
             git_sha = provider.fetch(parsed, tmp_dir)
         except subprocess.CalledProcessError as e:
             stderr = e.stderr or ""
-            _console.print(
-                f"[red]Failed to fetch {parsed.shorthand}: {stderr.strip()}[/red]"
-            )
+            _console.print(f"[red]Failed to fetch {parsed.shorthand}: {stderr.strip()}[/red]")
             raise typer.Exit(code=1) from None
         content_root = provider.content_root(parsed, tmp_dir)
         detected = detect_content(content_root)
@@ -249,9 +235,7 @@ def add_command(
         # Install skills to canonical storage and update paths
         canonical_skills: list[SkillInfo] = []
         for skill in skills:
-            skill_source_dir = (
-                content_root / skill.path if skill.path else content_root
-            )
+            skill_source_dir = content_root / skill.path if skill.path else content_root
             canonical_dest = create_canonical_storage(
                 source_dir=skill_source_dir,
                 project_dir=project_dir,
@@ -279,10 +263,7 @@ def add_command(
             )
 
         # Install plugin capabilities
-        if (
-            detected.content_type is ContentType.PLUGIN
-            and detected.plugins
-        ):
+        if detected.content_type is ContentType.PLUGIN and detected.plugins:
             for plg in detected.plugins:
                 plugin_dir = content_root
                 create_canonical_storage(
@@ -292,15 +273,11 @@ def add_command(
                     content_type=ContentType.PLUGIN,
                     is_global=is_global,
                 )
-                confirmed = _display_capabilities_and_confirm(
-                    plg, plugin_dir, auto_confirm=yes
-                )
+                confirmed = _display_capabilities_and_confirm(plg, plugin_dir, auto_confirm=yes)
                 if confirmed:
                     _install_plugin_capabilities(plg, plugin_dir, project_dir, agent)
                 else:
-                    _console.print(
-                        "[yellow]Skipped plugin capability installation.[/yellow]"
-                    )
+                    _console.print("[yellow]Skipped plugin capability installation.[/yellow]")
 
         # Write lock entry
         skill_names = tuple(s.name for s in skills)
@@ -342,10 +319,7 @@ def add_command(
                 ", ".join(installed_agents) if installed_agents else "(none)",
             )
 
-        if (
-            detected.content_type is ContentType.PLUGIN
-            and detected.plugin is not None
-        ):
+        if detected.content_type is ContentType.PLUGIN and detected.plugin is not None:
             table.add_row(
                 detected.plugin.name,
                 "plugin",

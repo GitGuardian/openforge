@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import typer
 
-from openforge.cli import get_project_dir, get_user_config_dir, _build_app, main
+from openforge.cli import _build_app, get_project_dir, get_user_config_dir, main
 
 
 def test_get_user_config_dir_returns_path() -> None:
@@ -70,8 +70,7 @@ def test_short_version_flag() -> None:
 
 def test_main_calls_build_app_and_runs() -> None:
     """main() should build the app and invoke it."""
-    with patch("openforge.cli._build_app") as mock_build, \
-         patch("openforge.cli.app") as mock_app:
+    with patch("openforge.cli._build_app") as mock_build, patch("openforge.cli.app") as mock_app:
         mock_build.return_value = mock_app
         main()
         mock_build.assert_called_once()

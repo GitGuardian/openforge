@@ -15,30 +15,35 @@ runner = CliRunner()
 
 def _make_lock(tmp_path: Path) -> None:
     lock_path = tmp_path / ".openforge-lock.json"
-    write_lock(lock_path, LockFile(entries={
-        "lint": LockEntry(
-            type=ContentType.SKILL,
-            source="acme/tools@lint",
-            source_type=SourceType.GITHUB,
-            git_url="https://github.com/acme/tools",
-            git_sha="abc123",
-            skills=("lint",),
-            agents_installed=("claude-code",),
-            installed_at="2026-03-06T12:00:00Z",
-            updated_at="2026-03-06T12:00:00Z",
+    write_lock(
+        lock_path,
+        LockFile(
+            entries={
+                "lint": LockEntry(
+                    type=ContentType.SKILL,
+                    source="acme/tools@lint",
+                    source_type=SourceType.GITHUB,
+                    git_url="https://github.com/acme/tools",
+                    git_sha="abc123",
+                    skills=("lint",),
+                    agents_installed=("claude-code",),
+                    installed_at="2026-03-06T12:00:00Z",
+                    updated_at="2026-03-06T12:00:00Z",
+                ),
+                "format": LockEntry(
+                    type=ContentType.SKILL,
+                    source="acme/tools@format",
+                    source_type=SourceType.GITHUB,
+                    git_url="https://github.com/acme/tools",
+                    git_sha="abc123",
+                    skills=("format",),
+                    agents_installed=("claude-code",),
+                    installed_at="2026-03-06T12:00:00Z",
+                    updated_at="2026-03-06T12:00:00Z",
+                ),
+            }
         ),
-        "format": LockEntry(
-            type=ContentType.SKILL,
-            source="acme/tools@format",
-            source_type=SourceType.GITHUB,
-            git_url="https://github.com/acme/tools",
-            git_sha="abc123",
-            skills=("format",),
-            agents_installed=("claude-code",),
-            installed_at="2026-03-06T12:00:00Z",
-            updated_at="2026-03-06T12:00:00Z",
-        ),
-    }))
+    )
 
 
 def _build_app() -> typer.Typer:
@@ -61,8 +66,10 @@ def test_find_by_name(tmp_path: Path) -> None:
     test_app = _build_app()
     _make_lock(tmp_path)
 
-    with patch("openforge.find_cmd.get_project_dir", return_value=tmp_path), \
-         patch("openforge.find_cmd.send_event"):
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+    ):
         result = runner.invoke(test_app, ["find", "lint"])
         assert result.exit_code == 0
         assert "lint" in result.output
@@ -73,8 +80,10 @@ def test_find_by_skill_name(tmp_path: Path) -> None:
     test_app = _build_app()
     _make_lock(tmp_path)
 
-    with patch("openforge.find_cmd.get_project_dir", return_value=tmp_path), \
-         patch("openforge.find_cmd.send_event"):
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+    ):
         result = runner.invoke(test_app, ["find", "format"])
         assert result.exit_code == 0
         assert "format" in result.output
@@ -83,8 +92,10 @@ def test_find_by_skill_name(tmp_path: Path) -> None:
 def test_find_no_results(tmp_path: Path) -> None:
     test_app = _build_app()
 
-    with patch("openforge.find_cmd.get_project_dir", return_value=tmp_path), \
-         patch("openforge.find_cmd.send_event"):
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+    ):
         result = runner.invoke(test_app, ["find", "nonexistent"])
         assert result.exit_code == 0
         assert "No results found." in result.output

@@ -57,9 +57,11 @@ _claude_code = AgentConfig(
     display_name="Claude Code",
     skills_dir=".claude/skills",
     global_skills_dir="~/.claude/skills",
-    detect=lambda: Path(".claude").is_dir()
-    or Path.home().joinpath(".claude").is_dir()
-    or _command_exists("claude"),
+    detect=lambda: (
+        Path(".claude").is_dir()
+        or Path.home().joinpath(".claude").is_dir()
+        or _command_exists("claude")
+    ),
     capabilities=frozenset({"skills", "mcp", "commands", "hooks", "agents", "env"}),
 )
 
@@ -77,8 +79,9 @@ _copilot = AgentConfig(
     display_name="GitHub Copilot",
     skills_dir=".github/copilot/skills",
     global_skills_dir="~/.github/copilot/skills",
-    detect=lambda: Path(".github/copilot").is_dir()
-    or Path.home().joinpath(".github/copilot").is_dir(),
+    detect=lambda: (
+        Path(".github/copilot").is_dir() or Path.home().joinpath(".github/copilot").is_dir()
+    ),
 )
 
 # ---------------------------------------------------------------------------

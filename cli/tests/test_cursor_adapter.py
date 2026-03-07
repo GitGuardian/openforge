@@ -16,13 +16,7 @@ def test_cursor_install_mcp_config(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
     (plugin_dir / ".mcp.json").write_text(
-        json.dumps(
-            {
-                "mcpServers": {
-                    "my-server": {"command": "node", "args": ["server.js"]}
-                }
-            }
-        )
+        json.dumps({"mcpServers": {"my-server": {"command": "node", "args": ["server.js"]}}})
     )
 
     project_dir = tmp_path / "project"
@@ -113,7 +107,9 @@ def test_cursor_remove_mcp_config(tmp_path: Path) -> None:
     cursor_dir = project_dir / ".cursor"
     cursor_dir.mkdir(parents=True)
     (cursor_dir / "mcp.json").write_text(
-        json.dumps({"mcpServers": {"plugin-srv": {"command": "node"}, "other": {"command": "keep"}}})
+        json.dumps(
+            {"mcpServers": {"plugin-srv": {"command": "node"}, "other": {"command": "keep"}}}
+        )
     )
 
     remove_mcp_config(plugin_dir=plugin_dir, project_dir=project_dir)
@@ -138,9 +134,7 @@ def test_cursor_remove_mcp_config_no_dest(tmp_path: Path) -> None:
     """remove_mcp_config is a no-op when .cursor/mcp.json does not exist."""
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
-    (plugin_dir / ".mcp.json").write_text(
-        json.dumps({"mcpServers": {"srv": {"command": "x"}}})
-    )
+    (plugin_dir / ".mcp.json").write_text(json.dumps({"mcpServers": {"srv": {"command": "x"}}}))
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()

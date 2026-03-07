@@ -45,8 +45,10 @@ def test_remove_installed_skill(tmp_path: Path) -> None:
     )
     write_lock(lock_path, LockFile(entries={"lint": entry}))
 
-    with patch("openforge.remove.get_project_dir", return_value=project_dir), \
-         patch("openforge.remove.send_event"):
+    with (
+        patch("openforge.remove.get_project_dir", return_value=project_dir),
+        patch("openforge.remove.send_event"),
+    ):
         result = runner.invoke(test_app, ["lint"])
         assert result.exit_code == 0, result.output
 
@@ -77,8 +79,10 @@ def test_remove_cleans_canonical_by_skill_name(tmp_path: Path) -> None:
     )
     write_lock(lock_path, LockFile(entries={"vercel-labs/skills": entry}))
 
-    with patch("openforge.remove.get_project_dir", return_value=project_dir), \
-         patch("openforge.remove.send_event"):
+    with (
+        patch("openforge.remove.get_project_dir", return_value=project_dir),
+        patch("openforge.remove.send_event"),
+    ):
         result = runner.invoke(test_app, ["vercel-labs/skills"])
         assert result.exit_code == 0, result.output
 
@@ -154,8 +158,10 @@ def test_remove_plugin_with_capabilities(tmp_path: Path) -> None:
     )
     write_lock(lock_path, LockFile(entries={"my-plugin": entry}))
 
-    with patch("openforge.remove.get_project_dir", return_value=project_dir), \
-         patch("openforge.remove.send_event"):
+    with (
+        patch("openforge.remove.get_project_dir", return_value=project_dir),
+        patch("openforge.remove.send_event"),
+    ):
         result = runner.invoke(test_app, ["my-plugin"])
         assert result.exit_code == 0, result.output
 
@@ -216,8 +222,10 @@ def test_remove_plugin_with_cursor_capabilities(tmp_path: Path) -> None:
     )
     write_lock(lock_path, LockFile(entries={"my-plugin": entry}))
 
-    with patch("openforge.remove.get_project_dir", return_value=project_dir), \
-         patch("openforge.remove.send_event"):
+    with (
+        patch("openforge.remove.get_project_dir", return_value=project_dir),
+        patch("openforge.remove.send_event"),
+    ):
         result = runner.invoke(test_app, ["my-plugin"])
         assert result.exit_code == 0, result.output
 
@@ -271,9 +279,11 @@ def test_remove_plugin_with_skills_and_agents(tmp_path: Path) -> None:
     )
     write_lock(lock_path, LockFile(entries={"acme/tools": entry}))
 
-    with patch("openforge.remove.get_project_dir", return_value=project_dir), \
-         patch("openforge.remove.get_agent", return_value=fake_agent), \
-         patch("openforge.remove.send_event"):
+    with (
+        patch("openforge.remove.get_project_dir", return_value=project_dir),
+        patch("openforge.remove.get_agent", return_value=fake_agent),
+        patch("openforge.remove.send_event"),
+    ):
         result = runner.invoke(test_app, ["acme/tools"])
         assert result.exit_code == 0, result.output
 
@@ -309,8 +319,10 @@ def test_remove_plugin_with_multiple_skills(tmp_path: Path) -> None:
     )
     write_lock(lock_path, LockFile(entries={"acme/tools": entry}))
 
-    with patch("openforge.remove.get_project_dir", return_value=project_dir), \
-         patch("openforge.remove.send_event"):
+    with (
+        patch("openforge.remove.get_project_dir", return_value=project_dir),
+        patch("openforge.remove.send_event"),
+    ):
         result = runner.invoke(test_app, ["acme/tools"])
         assert result.exit_code == 0, result.output
 

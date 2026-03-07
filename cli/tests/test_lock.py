@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from openforge.lock import read_lock, write_lock, add_lock_entry, remove_lock_entry
-from openforge.types import LockFile, LockEntry, ContentType, SourceType
+from openforge.lock import add_lock_entry, read_lock, remove_lock_entry, write_lock
+from openforge.types import ContentType, LockEntry, LockFile, SourceType
 
 
 def test_read_lock_missing_file(tmp_path: Path) -> None:

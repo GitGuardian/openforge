@@ -40,9 +40,7 @@ def test_content_root_no_subdir(tmp_path: Path) -> None:
     assert result == dest
 
 
-def test_fetch_token_not_in_clone_url(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fetch_token_not_in_clone_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When GITHUB_TOKEN is set, the token must NOT appear in the clone URL."""
     monkeypatch.setenv("GITHUB_TOKEN", "ghp_secret123")
 
@@ -69,9 +67,7 @@ def test_fetch_token_not_in_clone_url(
     assert "http.extraheader=Authorization: Bearer ghp_secret123" in clone_call_args
 
 
-def test_fetch_without_token(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fetch_without_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When no GITHUB_TOKEN is set, clone should not include extraheader."""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("GH_TOKEN", raising=False)
@@ -92,9 +88,7 @@ def test_fetch_without_token(
     assert all("extraheader" not in arg for arg in clone_call_args)
 
 
-def test_fetch_with_ref(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fetch_with_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When source has a ref, --branch should be passed to git clone."""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("GH_TOKEN", raising=False)
@@ -116,9 +110,7 @@ def test_fetch_with_ref(
     assert clone_call_args[branch_idx + 1] == "v1.0"
 
 
-def test_fetch_with_gh_token(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fetch_with_gh_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """GH_TOKEN should also be used when GITHUB_TOKEN is not set."""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setenv("GH_TOKEN", "ghp_alt_token")

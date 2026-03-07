@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from platformdirs import user_config_dir
@@ -20,7 +19,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def _main(  # pyright: ignore[reportUnusedFunction]
-    version: Optional[bool] = typer.Option(  # noqa: UP007
+    version: bool | None = typer.Option(  # noqa: UP007
         None,
         "--version",
         "-v",
@@ -45,10 +44,10 @@ def get_user_config_dir() -> Path:
 def _build_app() -> typer.Typer:
     """Register all commands and return the app. Lazy to avoid circular imports."""
     from openforge.add import add_command
-    from openforge.remove import remove_command
-    from openforge.list_cmd import list_command
-    from openforge.find_cmd import find_command
     from openforge.config import config_app
+    from openforge.find_cmd import find_command
+    from openforge.list_cmd import list_command
+    from openforge.remove import remove_command
 
     app.command("add")(add_command)
     app.command("remove")(remove_command)

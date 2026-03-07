@@ -29,19 +29,24 @@ def _make_app() -> typer.Typer:
 
 def _make_lock(tmp_path: Path) -> None:
     lock_path = tmp_path / ".openforge-lock.json"
-    write_lock(lock_path, LockFile(entries={
-        "lint": LockEntry(
-            type=ContentType.SKILL,
-            source="acme/tools@lint",
-            source_type=SourceType.GITHUB,
-            git_url="https://github.com/acme/tools",
-            git_sha="abc123",
-            skills=("lint",),
-            agents_installed=("claude-code",),
-            installed_at="2026-03-06T12:00:00Z",
-            updated_at="2026-03-06T12:00:00Z",
+    write_lock(
+        lock_path,
+        LockFile(
+            entries={
+                "lint": LockEntry(
+                    type=ContentType.SKILL,
+                    source="acme/tools@lint",
+                    source_type=SourceType.GITHUB,
+                    git_url="https://github.com/acme/tools",
+                    git_sha="abc123",
+                    skills=("lint",),
+                    agents_installed=("claude-code",),
+                    installed_at="2026-03-06T12:00:00Z",
+                    updated_at="2026-03-06T12:00:00Z",
+                ),
+            }
         ),
-    }))
+    )
 
 
 def test_list_shows_installed(tmp_path: Path) -> None:

@@ -17,11 +17,9 @@ from openforge.agents.adapters.claude import (
 def test_install_mcp_config(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
-    (plugin_dir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {
-            "my-server": {"command": "node", "args": ["server.js"]}
-        }
-    }))
+    (plugin_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"my-server": {"command": "node", "args": ["server.js"]}}})
+    )
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -37,15 +35,15 @@ def test_install_mcp_config(tmp_path: Path) -> None:
 def test_install_mcp_config_merges_existing(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
-    (plugin_dir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {"new-server": {"command": "new"}}
-    }))
+    (plugin_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"new-server": {"command": "new"}}})
+    )
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
-    (project_dir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {"existing-server": {"command": "old"}}
-    }))
+    (project_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"existing-server": {"command": "old"}}})
+    )
 
     install_mcp_config(plugin_dir=plugin_dir, project_dir=project_dir)
 
@@ -124,18 +122,22 @@ def test_remove_mcp_config(tmp_path: Path) -> None:
     """remove_mcp_config removes servers added by the plugin."""
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
-    (plugin_dir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {"plugin-server": {"command": "node"}}
-    }))
+    (plugin_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"plugin-server": {"command": "node"}}})
+    )
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
-    (project_dir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {
-            "plugin-server": {"command": "node"},
-            "other-server": {"command": "python"},
-        }
-    }))
+    (project_dir / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "plugin-server": {"command": "node"},
+                    "other-server": {"command": "python"},
+                }
+            }
+        )
+    )
 
     remove_mcp_config(plugin_dir=plugin_dir, project_dir=project_dir)
 
@@ -236,9 +238,9 @@ def test_install_remove_roundtrip(tmp_path: Path) -> None:
     """Install then remove: project should be back to original state."""
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
-    (plugin_dir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {"roundtrip-srv": {"command": "node"}}
-    }))
+    (plugin_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"roundtrip-srv": {"command": "node"}}})
+    )
     cmds_src = plugin_dir / "commands"
     cmds_src.mkdir()
     (cmds_src / "test.md").write_text("# Test")

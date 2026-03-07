@@ -16,8 +16,10 @@ def test_config_list(tmp_path: Path) -> None:
     test_app = typer.Typer()
     test_app.add_typer(config_app, name="config")
 
-    with patch("openforge.config.get_user_config_dir", return_value=tmp_path / "user"), \
-         patch("openforge.config.get_project_dir", return_value=tmp_path):
+    with (
+        patch("openforge.config.get_user_config_dir", return_value=tmp_path / "user"),
+        patch("openforge.config.get_project_dir", return_value=tmp_path),
+    ):
         result = runner.invoke(test_app, ["config", "list"])
         assert result.exit_code == 0
         assert "forge.url" in result.output
@@ -29,8 +31,10 @@ def test_config_get(tmp_path: Path) -> None:
     test_app = typer.Typer()
     test_app.add_typer(config_app, name="config")
 
-    with patch("openforge.config.get_user_config_dir", return_value=tmp_path / "user"), \
-         patch("openforge.config.get_project_dir", return_value=tmp_path):
+    with (
+        patch("openforge.config.get_user_config_dir", return_value=tmp_path / "user"),
+        patch("openforge.config.get_project_dir", return_value=tmp_path),
+    ):
         result = runner.invoke(test_app, ["config", "get", "forge.url"])
         assert result.exit_code == 0
         assert "openforge.gitguardian.com" in result.output

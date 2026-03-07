@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from openforge.skills import parse_skill_md, find_skills_in_dir
+from openforge.skills import find_skills_in_dir, parse_skill_md
 
 
 def test_parse_skill_md_with_frontmatter(tmp_path: Path) -> None:

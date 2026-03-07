@@ -6,17 +6,21 @@ from pathlib import Path
 
 import pytest
 
-from openforge.plugins import parse_plugin, parse_marketplace, detect_content
+from openforge.plugins import detect_content, parse_marketplace, parse_plugin
 from openforge.types import ContentType
 
 
 def test_parse_plugin_json(tmp_path: Path) -> None:
     plugin_dir = tmp_path / ".claude-plugin"
     plugin_dir.mkdir()
-    (plugin_dir / "plugin.json").write_text(json.dumps({
-        "name": "my-plugin",
-        "description": "A test plugin",
-    }))
+    (plugin_dir / "plugin.json").write_text(
+        json.dumps(
+            {
+                "name": "my-plugin",
+                "description": "A test plugin",
+            }
+        )
+    )
     skills_dir = tmp_path / "skills" / "skill-a"
     skills_dir.mkdir(parents=True)
     (skills_dir / "SKILL.md").write_text("---\nname: skill-a\n---\n")
@@ -47,12 +51,16 @@ def test_parse_plugin_with_commands(tmp_path: Path) -> None:
 
 
 def test_parse_marketplace_json(tmp_path: Path) -> None:
-    (tmp_path / "marketplace.json").write_text(json.dumps({
-        "plugins": [
-            {"name": "plugin-a", "path": "plugins/a"},
-            {"name": "plugin-b", "path": "plugins/b"},
-        ]
-    }))
+    (tmp_path / "marketplace.json").write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {"name": "plugin-a", "path": "plugins/a"},
+                    {"name": "plugin-b", "path": "plugins/b"},
+                ]
+            }
+        )
+    )
     for name in ["a", "b"]:
         p = tmp_path / "plugins" / name / ".claude-plugin"
         p.mkdir(parents=True)
@@ -90,12 +98,16 @@ def test_parse_plugin_invalid_name_rejected(tmp_path: Path) -> None:
 
 def test_detect_content_marketplace_returns_all_plugins(tmp_path: Path) -> None:
     """detect_content for a marketplace with 2 plugins must expose all plugins."""
-    (tmp_path / "marketplace.json").write_text(json.dumps({
-        "plugins": [
-            {"name": "plugin-a", "path": "plugins/a"},
-            {"name": "plugin-b", "path": "plugins/b"},
-        ]
-    }))
+    (tmp_path / "marketplace.json").write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {"name": "plugin-a", "path": "plugins/a"},
+                    {"name": "plugin-b", "path": "plugins/b"},
+                ]
+            }
+        )
+    )
     for name in ["a", "b"]:
         p = tmp_path / "plugins" / name / ".claude-plugin"
         p.mkdir(parents=True)
@@ -122,8 +134,8 @@ def test_detect_content_marketplace_returns_all_plugins(tmp_path: Path) -> None:
 
 def test_parse_marketplace_path_traversal_rejected(tmp_path: Path) -> None:
     """Marketplace plugin paths that escape root must be rejected."""
-    (tmp_path / "marketplace.json").write_text(json.dumps({
-        "plugins": [{"name": "evil", "path": "../../etc"}]
-    }))
+    (tmp_path / "marketplace.json").write_text(
+        json.dumps({"plugins": [{"name": "evil", "path": "../../etc"}]})
+    )
     with pytest.raises(ValueError, match="Path escape detected"):
         parse_marketplace(tmp_path)

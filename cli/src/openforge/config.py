@@ -26,9 +26,7 @@ def config_list() -> None:
     table.add_column("Source", style="yellow")
 
     for key in sorted(_DEFAULTS):
-        cv = get_config_value(
-            key, project_dir=project_dir, user_config_dir=user_config_dir
-        )
+        cv = get_config_value(key, project_dir=project_dir, user_config_dir=user_config_dir)
         table.add_row(key, cv.value, cv.source)
 
     _console.print(table)
@@ -40,9 +38,7 @@ def config_get(key: str = typer.Argument(help="Configuration key to read.")) -> 
     project_dir = get_project_dir()
     user_config_dir = get_user_config_dir()
 
-    cv = get_config_value(
-        key, project_dir=project_dir, user_config_dir=user_config_dir
-    )
+    cv = get_config_value(key, project_dir=project_dir, user_config_dir=user_config_dir)
     _console.print(f"{key} = {cv.value}  [dim](source: {cv.source})[/dim]")
 
 

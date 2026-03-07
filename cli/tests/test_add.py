@@ -6,11 +6,10 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import typer
 from typer.testing import CliRunner
 
-import typer
-
-from openforge.types import Source, DetectedContent, ContentType, PluginInfo, SkillInfo
+from openforge.types import ContentType, DetectedContent, PluginInfo, SkillInfo, Source
 
 
 def _fake_content_root(source: Source, dest: Path) -> Path:
@@ -25,12 +24,13 @@ def test_add_skill_from_github(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.detect_agents", return_value=[]), \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
-
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.detect_agents", return_value=[]),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
         # Mock: GitHub provider fetches to a temp dir with a skill
         def fake_fetch(source: Source, dest: Path) -> str:
             skill_dir = dest / "skills" / "lint"
@@ -60,11 +60,13 @@ def test_add_with_specific_agent(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.install_to_all_agents", return_value=["cursor"]), \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.install_to_all_agents", return_value=["cursor"]),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             skill_dir = dest / "skills" / "lint"
@@ -86,9 +88,9 @@ def test_add_with_specific_agent(tmp_path: Path) -> None:
 
 def test_e2e_with_local_repo(tmp_path: Path, sample_skill_repo: Path) -> None:
     """Full flow: detect content, create canonical storage, write lock file."""
-    from openforge.plugins import detect_content
     from openforge.installer import create_canonical_storage
     from openforge.lock import add_lock_entry, read_lock
+    from openforge.plugins import detect_content
     from openforge.types import LockEntry, SourceType
 
     project_dir = tmp_path / "project"
@@ -114,17 +116,21 @@ def test_e2e_with_local_repo(tmp_path: Path, sample_skill_repo: Path) -> None:
     # Write and verify lock file
     lock_path = project_dir / ".openforge-lock.json"
     for skill in content.skills:
-        add_lock_entry(lock_path, skill.name, LockEntry(
-            type=content.content_type,
-            source="acme/tools",
-            source_type=SourceType.GITHUB,
-            git_url="https://github.com/acme/tools",
-            git_sha="abc123",
-            skills=(skill.name,),
-            agents_installed=(),
-            installed_at="2026-03-06T12:00:00Z",
-            updated_at="2026-03-06T12:00:00Z",
-        ))
+        add_lock_entry(
+            lock_path,
+            skill.name,
+            LockEntry(
+                type=content.content_type,
+                source="acme/tools",
+                source_type=SourceType.GITHUB,
+                git_url="https://github.com/acme/tools",
+                git_sha="abc123",
+                skills=(skill.name,),
+                agents_installed=(),
+                installed_at="2026-03-06T12:00:00Z",
+                updated_at="2026-03-06T12:00:00Z",
+            ),
+        )
 
     lock = read_lock(lock_path)
     assert len(lock.entries) == 3
@@ -148,11 +154,13 @@ def test_add_symlinks_point_to_canonical_not_temp(tmp_path: Path) -> None:
         capabilities=frozenset({"skills"}),
     )
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.installer.detect_agents", return_value=[fake_agent]), \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.installer.detect_agents", return_value=[fake_agent]),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             skill_dir = dest / "skills" / "lint"
@@ -176,7 +184,9 @@ def test_add_symlinks_point_to_canonical_not_temp(tmp_path: Path) -> None:
     assert agent_link.is_symlink()
     target = agent_link.resolve()
     canonical = tmp_path / ".agents" / "skills" / "lint"
-    assert target == canonical.resolve(), f"Symlink points to {target}, expected {canonical.resolve()}"
+    assert target == canonical.resolve(), (
+        f"Symlink points to {target}, expected {canonical.resolve()}"
+    )
 
 
 def test_add_shows_friendly_error_on_clone_failure(tmp_path: Path) -> None:
@@ -187,10 +197,11 @@ def test_add_shows_friendly_error_on_clone_failure(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
-
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
         MockProvider.return_value.fetch.side_effect = subprocess.CalledProcessError(
             128, ["git", "clone"], stderr="fatal: repository not found"
         )
@@ -223,12 +234,14 @@ def _setup_plugin_repo(dest: Path) -> None:
     hooks_dir = dest / ".claude"
     hooks_dir.mkdir(parents=True)
     (hooks_dir / "hooks.json").write_text(
-        json.dumps({
-            "hooks": [
-                {"event": "PreToolUse", "command": ".claude/hooks/check.sh"},
-                {"event": "PostToolUse", "command": ".claude/hooks/format.sh"},
-            ]
-        })
+        json.dumps(
+            {
+                "hooks": [
+                    {"event": "PreToolUse", "command": ".claude/hooks/check.sh"},
+                    {"event": "PostToolUse", "command": ".claude/hooks/format.sh"},
+                ]
+            }
+        )
     )
 
     # Commands
@@ -243,7 +256,9 @@ def _setup_plugin_repo(dest: Path) -> None:
     (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n")
 
 
-def _make_plugin_detected(has_mcp: bool = True, has_hooks: bool = True, has_commands: bool = True) -> DetectedContent:
+def _make_plugin_detected(
+    has_mcp: bool = True, has_hooks: bool = True, has_commands: bool = True
+) -> DetectedContent:
     """Return a DetectedContent for a plugin with the specified capabilities."""
     plugin = PluginInfo(
         name="danger-plugin",
@@ -269,11 +284,13 @@ def test_add_plugin_shows_confirmation_prompt(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.detect_agents", return_value=[]), \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.detect_agents", return_value=[]),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             _setup_plugin_repo(dest)
@@ -306,11 +323,13 @@ def test_add_plugin_yes_flag_skips_confirmation(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.detect_agents", return_value=[]), \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.detect_agents", return_value=[]),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             _setup_plugin_repo(dest)
@@ -339,12 +358,14 @@ def test_add_plugin_decline_skips_capabilities_but_installs_skills(tmp_path: Pat
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.detect_agents", return_value=[]), \
-         patch("openforge.add._install_plugin_capabilities") as mock_install_caps, \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.detect_agents", return_value=[]),
+        patch("openforge.add._install_plugin_capabilities") as mock_install_caps,
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             _setup_plugin_repo(dest)
@@ -374,12 +395,14 @@ def test_add_plugin_agent_filter_applied_to_capabilities(tmp_path: Path) -> None
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.install_to_all_agents", return_value=["cursor"]), \
-         patch("openforge.add._install_plugin_capabilities") as mock_install_caps, \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.install_to_all_agents", return_value=["cursor"]),
+        patch("openforge.add._install_plugin_capabilities") as mock_install_caps,
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             _setup_plugin_repo(dest)
@@ -414,11 +437,13 @@ def test_add_plugin_no_capabilities_skips_confirmation(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
-    with patch("openforge.add.GitHubProvider") as MockProvider, \
-         patch("openforge.add.detect_content") as mock_content, \
-         patch("openforge.add.detect_agents", return_value=[]), \
-         patch("openforge.add.get_project_dir", return_value=tmp_path), \
-         patch("openforge.add.send_event"):
+    with (
+        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.detect_content") as mock_content,
+        patch("openforge.add.detect_agents", return_value=[]),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_event"),
+    ):
 
         def fake_fetch(source: Source, dest: Path) -> str:
             dest.mkdir(parents=True, exist_ok=True)

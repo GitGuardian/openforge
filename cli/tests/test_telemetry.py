@@ -1,11 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from openforge.config_file import Config
 from openforge.telemetry import send_event

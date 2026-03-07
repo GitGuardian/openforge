@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from openforge.agents.base import AgentConfig
-from openforge.agents.registry import AGENTS, get_agent, detect_agents
+from openforge.agents.registry import AGENTS, detect_agents, get_agent
 
 
 def test_agents_list_has_75_agents() -> None:
@@ -68,11 +68,30 @@ def test_all_agent_names_are_unique() -> None:
 def test_skills_cli_agents_present() -> None:
     """Agents from vercel-labs/skills should all be present in openforge."""
     skills_agents = [
-        "antigravity", "openclaw", "codebuddy", "command-code", "cortex",
-        "crush", "droid", "github-copilot", "iflow-cli", "kimi-cli",
-        "kiro-cli", "kode", "mcpjam", "mistral-vibe", "mux", "neovate",
-        "openhands", "pi", "pochi", "adal", "qoder", "qwen-code",
-        "zencoder", "trae-cn",
+        "antigravity",
+        "openclaw",
+        "codebuddy",
+        "command-code",
+        "cortex",
+        "crush",
+        "droid",
+        "github-copilot",
+        "iflow-cli",
+        "kimi-cli",
+        "kiro-cli",
+        "kode",
+        "mcpjam",
+        "mistral-vibe",
+        "mux",
+        "neovate",
+        "openhands",
+        "pi",
+        "pochi",
+        "adal",
+        "qoder",
+        "qwen-code",
+        "zencoder",
+        "trae-cn",
     ]
     for name in skills_agents:
         assert get_agent(name) is not None, f"Missing agent from skills CLI: {name}"

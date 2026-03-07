@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from openforge.config_file import load_config, get_config_value, set_config_value
+from openforge.config_file import get_config_value, load_config, set_config_value
 
 
 def test_load_defaults(tmp_path: Path) -> None:

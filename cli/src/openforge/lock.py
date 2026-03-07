@@ -55,8 +55,7 @@ def read_lock(path: Path) -> LockFile:
 
     raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     entries: dict[str, LockEntry] = {
-        name: _dict_to_entry(entry_data)
-        for name, entry_data in raw.get("entries", {}).items()
+        name: _dict_to_entry(entry_data) for name, entry_data in raw.get("entries", {}).items()
     }
     return LockFile(version=raw.get("version", 1), entries=entries)
 
@@ -70,10 +69,7 @@ def write_lock(path: Path, lock: LockFile) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
         "version": lock.version,
-        "entries": {
-            name: _entry_to_dict(entry)
-            for name, entry in lock.entries.items()
-        },
+        "entries": {name: _entry_to_dict(entry) for name, entry in lock.entries.items()},
     }
     content = json.dumps(payload, indent=2) + "\n"
     tmp_path = path.with_suffix(".tmp")

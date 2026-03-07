@@ -64,9 +64,7 @@ def _remove_plugin_capabilities(
 
 def remove_command(
     name: str = typer.Argument(..., help="Name of plugin or skill to remove"),
-    is_global: bool = typer.Option(
-        False, "--global", "-g", help="Remove from global installation"
-    ),
+    is_global: bool = typer.Option(False, "--global", "-g", help="Remove from global installation"),
 ) -> None:
     """Remove an installed plugin or skill."""
     project_dir = get_project_dir()
