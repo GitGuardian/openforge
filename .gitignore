@@ -25,6 +25,10 @@ Thumbs.db
 # Drizzle
 drizzle/meta/
 
+# Supabase local dev
+forge/supabase/.temp/
+forge/supabase/.branches/
+
 # Python
 *.pyc
 *.pyo
