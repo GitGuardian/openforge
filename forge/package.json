@@ -8,16 +8,22 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed": "bun run src/scripts/seed.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
+    "dompurify": "^3.3.2",
     "drizzle-orm": "^0.38.3",
     "hono": "^4.7.6",
+    "jsdom": "^28.1.0",
+    "marked": "^17.0.4",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
     "@types/bun": "^1.2.4",
+    "@types/dompurify": "^3.2.0",
+    "@types/jsdom": "^28.0.0",
     "drizzle-kit": "^0.30.5",
     "typescript": "^5.7.3"
   }
