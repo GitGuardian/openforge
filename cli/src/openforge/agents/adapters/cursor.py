@@ -18,11 +18,9 @@ def install_mcp_config(*, plugin_dir: Path, project_dir: Path) -> None:
     cursor_dir.mkdir(parents=True, exist_ok=True)
     mcp_path = cursor_dir / "mcp.json"
 
-    existing_data: dict[str, dict[str, object]]
-    if mcp_path.exists():
-        existing_data = json.loads(mcp_path.read_text())
-    else:
-        existing_data = {"mcpServers": {}}
+    existing_data: dict[str, dict[str, object]] = (
+        json.loads(mcp_path.read_text()) if mcp_path.exists() else {"mcpServers": {}}
+    )
 
     existing_servers = existing_data.setdefault("mcpServers", {})
     existing_servers.update(new_servers)

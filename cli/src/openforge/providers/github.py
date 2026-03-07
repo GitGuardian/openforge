@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 
 from openforge.types import Source
@@ -27,9 +27,9 @@ class GitHubProvider:
             cmd.extend(["--branch", source.ref])
         cmd.extend([url, str(dest)])
 
-        subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
+        subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)  # nosec B603
 
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607
             ["git", "-C", str(dest), "rev-parse", "HEAD"],
             check=True,
             capture_output=True,

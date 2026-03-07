@@ -12,7 +12,8 @@ def test_parse_skill_md_with_frontmatter(tmp_path: Path) -> None:
     skill_dir = tmp_path / "lint"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text(
-        "---\nname: lint\ndescription: Lint your code\ntags:\n  - quality\n  - python\n---\n\n# Lint Skill\n\nLints things.\n"
+        "---\nname: lint\ndescription: Lint your code\ntags:\n"
+        "  - quality\n  - python\n---\n\n# Lint Skill\n\nLints things.\n"
     )
     skill = parse_skill_md(skill_dir / "SKILL.md")
     assert skill.name == "lint"

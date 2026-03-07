@@ -194,10 +194,9 @@ def get_config_value(
             source = "env"
 
     # Special: telemetry.enabled and DO_NOT_TRACK / CI
-    if key == "telemetry.enabled":
-        if os.environ.get("DO_NOT_TRACK") == "1" or _is_ci():
-            value = "false"
-            source = "env"
+    if key == "telemetry.enabled" and (os.environ.get("DO_NOT_TRACK") == "1" or _is_ci()):
+        value = "false"
+        source = "env"
 
     if value is None:
         value = ""

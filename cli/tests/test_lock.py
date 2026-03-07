@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import stat
@@ -154,11 +155,11 @@ def test_write_lock_atomic_no_corrupt_on_failure(tmp_path: Path) -> None:
         updated_at="2026-03-06T13:00:00Z",
     )
     bad_lock = LockFile(entries={"evil": bad_entry})
-    with patch("openforge.lock.os.replace", side_effect=OSError("disk full")):
-        try:
-            write_lock(lock_path, bad_lock)
-        except OSError:
-            pass
+    with (
+        patch("openforge.lock.os.replace", side_effect=OSError("disk full")),
+        contextlib.suppress(OSError),
+    ):
+        write_lock(lock_path, bad_lock)
 
     # Original file should be intact
     loaded = read_lock(lock_path)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime
 import json
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 from pathlib import Path
 from typing import Any, cast

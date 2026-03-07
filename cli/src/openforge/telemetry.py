@@ -35,7 +35,7 @@ def send_event(event: str, data: dict[str, object]) -> None:
                 json=payload,
                 timeout=5.0,
             )
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # nosec B110
             # Fire-and-forget: silently ignore all telemetry errors.
             # This includes network, TLS, timeout, and config errors.
             # Telemetry must never block or crash the CLI.
