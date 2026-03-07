@@ -16,6 +16,7 @@ The canonical plugin format is Claude Code's `.claude-plugin/` structure. Plugin
 See `docs/plans/2026-03-06-openforge-platform.md` for the full PRD.
 See `docs/plans/2026-03-06-openforge-architecture-design.md` for the architecture design.
 See `docs/plans/2026-03-06-phase1-cli-mvp-design.md` for the Phase 1 CLI MVP design.
+See `docs/plans/2026-03-06-phase2-forge-mvp-design.md` for the Phase 2 Forge MVP design.
 
 ---
 
@@ -52,12 +53,15 @@ See `docs/plans/2026-03-06-phase1-cli-mvp-design.md` for the Phase 1 CLI MVP des
 ```bash
 cd forge
 bun install              # Install dependencies
+supabase start           # Start local Supabase (Postgres, Auth, Studio)
 bun run dev              # Start dev server with hot reload
 bun run start            # Start production server
 bun run db:generate      # Generate migration from schema changes
 bun run db:migrate       # Apply migrations to database
 bun run db:studio        # Open Drizzle Studio (database GUI)
 bun run typecheck        # Run TypeScript type checking
+bun run seed -- --repo <url> --name <registry>  # Seed database from a git repo
+supabase stop            # Stop local Supabase
 ```
 
 ### CLI
@@ -90,20 +94,22 @@ openforge/
       middleware/
         auth.ts                 # Supabase Auth middleware
       routes/
-        pages.ts                # HTML page routes (browse, detail, submit, admin)
+        pages.ts                # HTML page routes (catalogue, detail)
         api.ts                  # JSON API (marketplace.json, telemetry, well-known)
+        auth.ts                 # Auth routes (login, signup, magic-link, logout)
         health.ts               # GET /health
       db/
-        schema.ts               # Drizzle table definitions (with RLS)
+        schema.ts               # Drizzle table definitions (8 tables)
         index.ts                # Database client
       lib/
-        git.ts                  # GitHub API operations (indexing, MR creation)
-        validation.ts           # Plugin/skill validation
-        notifications.ts        # Slack + email
+        markdown.ts             # Markdown rendering (marked + DOMPurify)
         supabase.ts             # Supabase client (auth, storage)
       views/
-        layout.ts               # HTML layout (Tailwind + HTMX)
+        layout.ts               # HTML layout (Tailwind + HTMX, auth-aware nav)
+      scripts/
+        seed.ts                 # Seed database from git repos
     drizzle/                    # Generated SQL migrations
+    supabase/                   # Local Supabase config (supabase init)
     public/                     # Static files served at /public/*
   cli/                          # Python CLI (uvx openforge)
     pyproject.toml
@@ -135,9 +141,6 @@ openforge/
     tests/
   docs/
     plans/                      # PRDs and design docs (YYYY-MM-DD-<name>.md)
-    architecture.md
-    deployment.md
-    contributing.md
   .mcp.json                     # MCP servers (Railway, Supabase, Context7)
   CLAUDE.md                     # This file
   README.md
@@ -218,9 +221,14 @@ When you make significant changes (new tables, new routes, new CLI commands, arc
 
 ### The Forge
 - **`forge/src/index.ts`** — Entry point. All middleware and routes registered here.
-- **`forge/src/db/schema.ts`** — Database schema. Source of truth for what tables exist.
-- **`forge/src/views/layout.ts`** — HTML layout wrapper. All pages use this.
-- **`forge/src/middleware/auth.ts`** — Supabase Auth session handling.
+- **`forge/src/db/schema.ts`** — Database schema (8 tables). Source of truth for what tables exist.
+- **`forge/src/routes/auth.ts`** — Auth routes (login, signup, magic-link, callback, logout).
+- **`forge/src/routes/pages.ts`** — Catalogue page with search/pagination, plugin detail page.
+- **`forge/src/routes/api.ts`** — JSON APIs (marketplace.json, skills index, telemetry).
+- **`forge/src/middleware/auth.ts`** — Supabase Auth session handling, private/public mode.
+- **`forge/src/views/layout.ts`** — HTML layout wrapper with auth-aware nav.
+- **`forge/src/scripts/seed.ts`** — Seed database by cloning and scanning git repos.
+- **`forge/src/lib/markdown.ts`** — Server-side markdown rendering with sanitization.
 
 ### CLI
 - **`cli/src/openforge/cli.py`** — Typer app. All commands registered here.
@@ -239,13 +247,23 @@ The project includes a `.mcp.json` that configures MCP servers for all contribut
 - **Supabase** — database management, docs. Authenticates via OAuth on first use.
 - **Context7** — up-to-date library documentation.
 
-### The Forge
+### The Forge (local dev)
 
-1. Copy `forge/.env.example` to `forge/.env` and fill in:
-   - `DATABASE_URL` — Supabase Postgres connection string
-   - `SUPABASE_URL` — Supabase project URL
-   - `SUPABASE_ANON_KEY` — Supabase anonymous key
-   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (for admin operations)
+1. Install Supabase CLI: `brew install supabase/tap/supabase`
+2. `cd forge && bun install`
+3. `supabase start` (requires Docker — starts local Postgres, Auth, Studio)
+4. Copy `forge/.env.example` to `forge/.env` — fill in values from `supabase status`
+5. `bun run db:migrate`
+6. `bun run seed -- --repo https://github.com/anthropics/claude-code --name anthropic`
+7. `bun run dev` — app at http://localhost:3000, Studio at http://127.0.0.1:54323
+
+### The Forge (cloud Supabase)
+
+1. Create a Supabase project and copy credentials to `forge/.env`:
+   - `DATABASE_URL` — Postgres connection string
+   - `SUPABASE_URL` — Project URL
+   - `SUPABASE_ANON_KEY` — Anonymous key
+   - `SUPABASE_SERVICE_ROLE_KEY` — Service role key
 2. `cd forge && bun install`
 3. `bun run db:migrate`
 4. `bun run dev`
