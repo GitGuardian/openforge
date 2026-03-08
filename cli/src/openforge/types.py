@@ -12,27 +12,41 @@ class ContentType(Enum):
 
 class SourceType(Enum):
     GITHUB = "github"
+    GITLAB = "gitlab"
+    GIT = "git"
+    LOCAL = "local"
+    WELL_KNOWN = "well_known"
+    FORGE = "forge"
 
 
 @dataclass(frozen=True)
 class Source:
     """Parsed source reference (e.g. owner/repo@skill-name)."""
 
-    owner: str
-    repo: str
+    source_type: SourceType = SourceType.GITHUB
+    owner: str = ""
+    repo: str = ""
     skill_name: str | None = None
     subdir: str | None = None
     ref: str | None = None
+    url: str | None = None
+    local_path: str | None = None
 
     @property
     def shorthand(self) -> str:
-        s = f"{self.owner}/{self.repo}"
+        if self.source_type == SourceType.LOCAL:
+            return self.local_path or ""
+        if self.source_type in (SourceType.WELL_KNOWN, SourceType.FORGE):
+            return self.url or ""
+        base = f"{self.owner}/{self.repo}" if self.owner else (self.url or "")
         if self.skill_name:
-            s += f"@{self.skill_name}"
-        return s
+            return f"{base}@{self.skill_name}"
+        return base
 
     @property
     def git_url(self) -> str:
+        if self.url:
+            return self.url
         return f"https://github.com/{self.owner}/{self.repo}"
 
 
