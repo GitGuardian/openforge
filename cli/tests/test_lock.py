@@ -9,7 +9,14 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from openforge.lock import add_lock_entry, read_lock, remove_lock_entry, write_lock
+from openforge.lock import (
+    _dict_to_entry,
+    _entry_to_dict,
+    add_lock_entry,
+    read_lock,
+    remove_lock_entry,
+    write_lock,
+)
 from openforge.types import ContentType, LockEntry, LockFile, SourceType
 
 
@@ -165,3 +172,83 @@ def test_write_lock_atomic_no_corrupt_on_failure(tmp_path: Path) -> None:
     loaded = read_lock(lock_path)
     assert "original" in loaded.entries
     assert "evil" not in loaded.entries
+
+
+# --- Phase 4: Non-git source type round-trip ---
+
+
+def test_lock_entry_local_source() -> None:
+    """Local source entries round-trip through serialization."""
+    entry = LockEntry(
+        type=ContentType.SKILL,
+        source="./my-plugin",
+        source_type=SourceType.LOCAL,
+        git_url="",
+        git_sha="abc123def4",
+        skills=("my-skill",),
+        agents_installed=("claude-code",),
+        installed_at="2026-03-08T00:00:00Z",
+        updated_at="2026-03-08T00:00:00Z",
+    )
+    d = _entry_to_dict(entry)
+    assert d["source_type"] == "local"
+    restored = _dict_to_entry(d)
+    assert restored == entry
+
+
+def test_lock_entry_well_known_source() -> None:
+    """Well-known source entries round-trip through serialization."""
+    entry = LockEntry(
+        type=ContentType.SKILL,
+        source="https://example.com",
+        source_type=SourceType.WELL_KNOWN,
+        git_url="",
+        git_sha="contenthas",
+        skills=("their-skill",),
+        agents_installed=("claude-code",),
+        installed_at="2026-03-08T00:00:00Z",
+        updated_at="2026-03-08T00:00:00Z",
+    )
+    d = _entry_to_dict(entry)
+    assert d["source_type"] == "well_known"
+    restored = _dict_to_entry(d)
+    assert restored == entry
+
+
+def test_lock_entry_gitlab_source() -> None:
+    """GitLab source entries round-trip through serialization."""
+    entry = LockEntry(
+        type=ContentType.SKILL,
+        source="https://gitlab.com/acme/skills",
+        source_type=SourceType.GITLAB,
+        git_url="https://gitlab.com/acme/skills",
+        git_sha="gl789abc",
+        skills=("gl-skill",),
+        agents_installed=("claude-code",),
+        installed_at="2026-03-08T00:00:00Z",
+        updated_at="2026-03-08T00:00:00Z",
+    )
+    d = _entry_to_dict(entry)
+    assert d["source_type"] == "gitlab"
+    restored = _dict_to_entry(d)
+    assert restored == entry
+
+
+def test_lock_write_read_local_source(tmp_path: Path) -> None:
+    """Full write/read cycle for a local source entry."""
+    lock_path = tmp_path / ".openforge-lock.json"
+    entry = LockEntry(
+        type=ContentType.SKILL,
+        source="./my-plugin",
+        source_type=SourceType.LOCAL,
+        git_url="",
+        git_sha="abc123def4",
+        skills=("my-skill",),
+        agents_installed=("claude-code",),
+        installed_at="2026-03-08T00:00:00Z",
+        updated_at="2026-03-08T00:00:00Z",
+    )
+    write_lock(lock_path, LockFile(entries={"my-plugin": entry}))
+    loaded = read_lock(lock_path)
+    assert loaded.entries["my-plugin"].source_type == SourceType.LOCAL
+    assert loaded.entries["my-plugin"] == entry
