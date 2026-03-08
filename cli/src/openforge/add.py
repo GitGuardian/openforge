@@ -19,6 +19,7 @@ from openforge.cli import get_project_dir
 from openforge.installer import create_canonical_storage, install_to_all_agents
 from openforge.lock import add_lock_entry, lock_file_path
 from openforge.plugins import detect_content
+from openforge.providers.forge import ForgeProvider
 from openforge.providers.git import GitProvider
 from openforge.providers.local import LocalProvider
 from openforge.providers.source_parser import parse_source
@@ -34,10 +35,12 @@ from openforge.types import (
 
 _console = Console()
 
-_PROVIDERS = [GitProvider(), LocalProvider(), WellKnownProvider()]
+_PROVIDERS = [GitProvider(), LocalProvider(), WellKnownProvider(), ForgeProvider()]
 
 
-def get_provider(source: Source) -> GitProvider | LocalProvider | WellKnownProvider:
+def get_provider(
+    source: Source,
+) -> GitProvider | LocalProvider | WellKnownProvider | ForgeProvider:
     """Return the first provider that matches the source."""
     for p in _PROVIDERS:
         if p.matches(source):
