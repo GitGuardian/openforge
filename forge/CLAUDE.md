@@ -57,6 +57,7 @@ forge/
       health.ts               # GET /health
       votes.ts                # Vote routes (upvote, downvote, remove)
       comments.ts             # Comment routes (create, edit, delete, load)
+      webhooks.ts             # GitHub webhook endpoint (HMAC-verified, triggers indexing)
     db/
       schema.ts               # Drizzle table definitions (8 tables)
       index.ts                # Database client
@@ -64,6 +65,7 @@ forge/
       markdown.ts             # Markdown rendering (marked + DOMPurify)
       supabase.ts             # Supabase client (auth, storage)
       rate-limit.ts           # In-memory rate limiting
+      indexer.ts              # Indexer library (clone, scan, upsert plugins/skills)
     views/
       layout.ts               # HTML layout (Tailwind + HTMX, auth-aware nav)
       components/

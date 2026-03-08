@@ -9,12 +9,18 @@ import { apiRoutes } from "./routes/api";
 import { authRoutes } from "./routes/auth";
 import { voteRoutes } from "./routes/votes";
 import { commentRoutes } from "./routes/comments";
+import { webhookRoutes } from "./routes/webhooks";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
 
 // Middleware
 app.use("*", logger());
+
+// Webhook route registered before CSRF — GitHub POSTs don't carry CSRF tokens.
+// HMAC signature verification provides equivalent protection.
+app.route("/", webhookRoutes);
+
 app.use("*", csrf());
 app.use("*", authMiddleware);
 
