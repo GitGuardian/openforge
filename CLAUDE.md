@@ -19,6 +19,8 @@ See `docs/plans/2026-03-06-phase1-cli-mvp-design.md` for the Phase 1 CLI MVP des
 See `docs/plans/2026-03-06-phase2-forge-mvp-design.md` for the Phase 2 Forge MVP design.
 See `docs/plans/2026-03-08-phase3-community-features-design.md` for the Phase 3 Community Features design.
 See `docs/plans/2026-03-08-phase3-community-features-implementation.md` for the Phase 3 implementation plan.
+See `docs/plans/2026-03-08-phase4-automated-indexing-design.md` for the Phase 4 Automated Indexing & CLI Parity design.
+See `docs/plans/2026-03-08-phase4-implementation.md` for the Phase 4 implementation plan.
 
 ---
 
@@ -50,12 +52,14 @@ openforge/
         api.ts                  # JSON API (marketplace.json, telemetry, well-known)
         auth.ts                 # Auth routes (login, signup, magic-link, logout)
         health.ts               # GET /health
+        webhooks.ts             # GitHub webhook receiver (HMAC-SHA256)
       db/
         schema.ts               # Drizzle table definitions (8 tables)
         index.ts                # Database client
       lib/
         markdown.ts             # Markdown rendering (marked + DOMPurify)
         supabase.ts             # Supabase client (auth, storage)
+        indexer.ts              # Reusable indexing library (extracted from seed.ts)
       views/
         layout.ts               # HTML layout (Tailwind + HTMX, auth-aware nav)
       scripts/
@@ -68,10 +72,12 @@ openforge/
     src/
       openforge/
         cli.py                  # Typer app, entry point, --version flag
-        add.py                  # add command
+        add.py                  # add command (provider dispatch)
         remove.py               # remove command
-        find_cmd.py             # find command
+        find_cmd.py             # find command (--remote, --all for Forge search)
         list_cmd.py             # list command
+        check.py                # check command (staleness detection via git ls-remote)
+        update.py               # update command (re-fetch outdated entries)
         config.py               # config command
         agents/
           registry.py           # All 75 agent configs (data-driven)
@@ -80,9 +86,13 @@ openforge/
             claude.py           # Claude Code adapter
             cursor.py           # Cursor adapter
         providers/
-          base.py               # Provider protocol
-          github.py             # GitHub clone + content detection
-          source_parser.py      # Parse owner/repo@skill syntax
+          base.py               # Provider protocol + FetchResult
+          github.py             # Legacy GitHub provider
+          git.py                # Git provider (GitHub, GitLab, SSH, generic)
+          local.py              # Local path provider
+          wellknown.py          # Well-known URL provider (RFC 8615)
+          forge.py              # Forge API provider (remote find + install)
+          source_parser.py      # Parse sources (owner/repo, GitLab, SSH, local, #branch, well-known, forge:)
         installer.py            # Core install logic (symlink/copy, agent dispatch)
         plugins.py              # plugin.json / marketplace.json parsing
         skills.py               # SKILL.md parsing
