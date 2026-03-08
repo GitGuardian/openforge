@@ -4,16 +4,32 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import typer
 from typer.testing import CliRunner
 
+from openforge.providers.base import FetchResult
 from openforge.types import ContentType, DetectedContent, PluginInfo, SkillInfo, Source
 
 
-def _fake_content_root(source: Source, dest: Path) -> Path:
-    return dest
+def _make_mock_provider(
+    fetch_side_effect: object = None,
+    sha: str = "abc123",
+) -> MagicMock:
+    """Create a mock provider that returns a FetchResult from fetch()."""
+    mock_provider = MagicMock()
+
+    if fetch_side_effect is not None:
+        mock_provider.fetch.side_effect = fetch_side_effect
+    else:
+        # Default: return a FetchResult pointing to dest as content_root
+        def default_fetch(source: Source, dest: Path) -> FetchResult:
+            return FetchResult(sha=sha, content_root=dest)
+
+        mock_provider.fetch.side_effect = default_fetch
+
+    return mock_provider
 
 
 def test_add_skill_from_github(tmp_path: Path) -> None:
@@ -24,24 +40,21 @@ def test_add_skill_from_github(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        skill_dir = dest / "skills" / "lint"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-        # Mock: GitHub provider fetches to a temp dir with a skill
-        def fake_fetch(source: Source, dest: Path) -> str:
-            skill_dir = dest / "skills" / "lint"
-            skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
-        # Mock: content detection finds the skill
         mock_content.return_value = DetectedContent(
             content_type=ContentType.SKILL,
             skills=(SkillInfo(name="lint", path="skills/lint"),),
@@ -60,23 +73,21 @@ def test_add_with_specific_agent(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        skill_dir = dest / "skills" / "lint"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.install_to_all_agents", return_value=["cursor"]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            skill_dir = dest / "skills" / "lint"
-            skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         mock_content.return_value = DetectedContent(
             content_type=ContentType.SKILL,
             skills=(SkillInfo(name="lint", path="skills/lint"),),
@@ -154,23 +165,21 @@ def test_add_symlinks_point_to_canonical_not_temp(tmp_path: Path) -> None:
         capabilities=frozenset({"skills"}),
     )
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        skill_dir = dest / "skills" / "lint"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.installer.detect_agents", return_value=[fake_agent]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            skill_dir = dest / "skills" / "lint"
-            skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         mock_content.return_value = DetectedContent(
             content_type=ContentType.SKILL,
             skills=(SkillInfo(name="lint", path="skills/lint"),),
@@ -197,15 +206,16 @@ def test_add_shows_friendly_error_on_clone_failure(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    mock_provider = MagicMock()
+    mock_provider.fetch.side_effect = subprocess.CalledProcessError(
+        128, ["git", "clone"], stderr="fatal: repository not found"
+    )
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-        MockProvider.return_value.fetch.side_effect = subprocess.CalledProcessError(
-            128, ["git", "clone"], stderr="fatal: repository not found"
-        )
-
         result = runner.invoke(test_app, ["acme/nonexistent"])
         # Should NOT show a Python traceback
         assert "Traceback" not in result.output
@@ -284,21 +294,19 @@ def test_add_plugin_shows_confirmation_prompt(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        _setup_plugin_repo(dest)
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            _setup_plugin_repo(dest)
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         mock_content.return_value = _make_plugin_detected()
 
         # Answer "y" to the confirmation prompt
@@ -323,21 +331,19 @@ def test_add_plugin_yes_flag_skips_confirmation(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        _setup_plugin_repo(dest)
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            _setup_plugin_repo(dest)
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         mock_content.return_value = _make_plugin_detected()
 
         # No input needed with --yes
@@ -358,22 +364,20 @@ def test_add_plugin_decline_skips_capabilities_but_installs_skills(tmp_path: Pat
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        _setup_plugin_repo(dest)
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add._install_plugin_capabilities") as mock_install_caps,
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            _setup_plugin_repo(dest)
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         mock_content.return_value = _make_plugin_detected()
 
         # Answer "n" to decline
@@ -395,22 +399,20 @@ def test_add_plugin_agent_filter_applied_to_capabilities(tmp_path: Path) -> None
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        _setup_plugin_repo(dest)
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.install_to_all_agents", return_value=["cursor"]),
         patch("openforge.add._install_plugin_capabilities") as mock_install_caps,
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            _setup_plugin_repo(dest)
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         mock_content.return_value = _make_plugin_detected()
 
         result = runner.invoke(test_app, ["acme/plugin", "--agent", "cursor", "--yes"])
@@ -437,29 +439,27 @@ def test_add_plugin_no_capabilities_skips_confirmation(tmp_path: Path) -> None:
     test_app.command("add")(add_command)
     runner = CliRunner()
 
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        dest.mkdir(parents=True, exist_ok=True)
+        plugin_dir = dest / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            json.dumps({"name": "safe-plugin", "description": "No caps"})
+        )
+        skill_dir = dest / "skills" / "helper"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n")
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
     with (
-        patch("openforge.add.GitHubProvider") as MockProvider,
+        patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
         patch("openforge.add.send_event"),
     ):
-
-        def fake_fetch(source: Source, dest: Path) -> str:
-            dest.mkdir(parents=True, exist_ok=True)
-            plugin_dir = dest / ".claude-plugin"
-            plugin_dir.mkdir()
-            (plugin_dir / "plugin.json").write_text(
-                json.dumps({"name": "safe-plugin", "description": "No caps"})
-            )
-            skill_dir = dest / "skills" / "helper"
-            skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n")
-            return "abc123"
-
-        MockProvider.return_value.fetch.side_effect = fake_fetch
-        MockProvider.return_value.content_root.side_effect = _fake_content_root
-
         safe_plugin = PluginInfo(
             name="safe-plugin",
             description="No caps",

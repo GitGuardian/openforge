@@ -8,12 +8,12 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from openforge.add import get_provider
 from openforge.check import check_entry_staleness
 from openforge.cli import get_project_dir
 from openforge.installer import create_canonical_storage, install_to_all_agents
 from openforge.lock import add_lock_entry, lock_file_path, read_lock
 from openforge.plugins import detect_content
-from openforge.providers.github import GitHubProvider
 from openforge.providers.source_parser import parse_source
 from openforge.telemetry import send_event
 from openforge.types import ContentType, LockEntry, SkillInfo
@@ -24,12 +24,13 @@ _console = Console()
 def _reinstall_entry(name: str, entry: LockEntry, project_dir: Path, is_global: bool) -> None:
     """Re-run the add flow for a single outdated entry."""
     source = parse_source(entry.source)
-    provider = GitHubProvider()
+    provider = get_provider(source)
 
     with tempfile.TemporaryDirectory(prefix="openforge-") as tmp_str:
         tmp_dir = Path(tmp_str)
-        new_sha = provider.fetch(source, tmp_dir)
-        content_root = provider.content_root(source, tmp_dir)
+        fetch_result = provider.fetch(source, tmp_dir)
+        new_sha = fetch_result.sha
+        content_root = fetch_result.content_root
         detected = detect_content(content_root)
 
         # Show what changed

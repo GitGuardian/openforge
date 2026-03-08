@@ -19,7 +19,8 @@ from openforge.cli import get_project_dir
 from openforge.installer import create_canonical_storage, install_to_all_agents
 from openforge.lock import add_lock_entry, lock_file_path
 from openforge.plugins import detect_content
-from openforge.providers.github import GitHubProvider
+from openforge.providers.git import GitProvider
+from openforge.providers.local import LocalProvider
 from openforge.providers.source_parser import parse_source
 from openforge.telemetry import send_event
 from openforge.types import (
@@ -27,10 +28,21 @@ from openforge.types import (
     LockEntry,
     PluginInfo,
     SkillInfo,
-    SourceType,
+    Source,
 )
 
 _console = Console()
+
+_PROVIDERS = [GitProvider(), LocalProvider()]
+
+
+def get_provider(source: Source) -> GitProvider | LocalProvider:
+    """Return the first provider that matches the source."""
+    for p in _PROVIDERS:
+        if p.matches(source):
+            return p
+    msg = f"No provider for source type: {source.source_type.value}"
+    raise ValueError(msg)
 
 
 def _collect_mcp_servers(plugin_dir: Path) -> dict[str, str]:
@@ -203,17 +215,23 @@ def add_command(
     """Add a plugin or skill from a source."""
     parsed = parse_source(source)
     project_dir = get_project_dir()
-    provider = GitHubProvider()
+
+    try:
+        provider = get_provider(parsed)
+    except ValueError as e:
+        _console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from None
 
     with tempfile.TemporaryDirectory(prefix="openforge-") as tmp_str:
         tmp_dir = Path(tmp_str)
         try:
-            git_sha = provider.fetch(parsed, tmp_dir)
-        except subprocess.CalledProcessError as e:
-            stderr = e.stderr or ""
-            _console.print(f"[red]Failed to fetch {parsed.shorthand}: {stderr.strip()}[/red]")
+            fetch_result = provider.fetch(parsed, tmp_dir)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            err_msg = getattr(e, "stderr", None) or str(e)
+            _console.print(f"[red]Failed to fetch {parsed.shorthand}: {err_msg.strip()}[/red]")
             raise typer.Exit(code=1) from None
-        content_root = provider.content_root(parsed, tmp_dir)
+        content_root = fetch_result.content_root
+        git_sha = fetch_result.sha
         detected = detect_content(content_root)
 
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -284,7 +302,7 @@ def add_command(
         entry = LockEntry(
             type=detected.content_type,
             source=parsed.shorthand,
-            source_type=SourceType.GITHUB,
+            source_type=parsed.source_type,
             git_url=parsed.git_url,
             git_sha=git_sha,
             skills=skill_names,
