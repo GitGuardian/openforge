@@ -2,8 +2,9 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import { eq, ilike, or, and, desc, sql, count } from "drizzle-orm";
 import { layout } from "../views/layout";
+import { voteWidget } from "../views/components/vote-widget";
 import { db } from "../db";
-import { plugins, skills } from "../db/schema";
+import { plugins, skills, votes } from "../db/schema";
 import type { AppEnv } from "../types";
 
 export const pageRoutes = new Hono<AppEnv>();
@@ -19,26 +20,32 @@ function pluginCard(plugin: {
   description: string;
   installCount: number;
   tags: string[];
+  voteScore: number;
+  userVote: number;
 }) {
   return html`
-    <a
-      href="/plugins/${plugin.name}"
-      class="block p-4 bg-white rounded-lg border hover:border-blue-300 transition-colors"
+    <div
+      class="flex gap-3 p-4 bg-white rounded-lg border hover:border-blue-300 transition-colors"
     >
-      <div class="flex justify-between items-start">
-        <h3 class="text-lg font-semibold text-gray-900">${plugin.name}</h3>
-        <span class="text-sm text-gray-500">${plugin.installCount} installs</span>
+      <div class="flex-shrink-0 pt-1">
+        ${voteWidget(plugin.name, plugin.voteScore, plugin.userVote, false)}
       </div>
-      <p class="text-gray-600 mt-1">${plugin.description}</p>
-      <div class="flex gap-2 mt-2">
-        ${plugin.tags.map(
-          (tag) =>
-            html`<span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full"
-              >${tag}</span
-            >`
-        )}
-      </div>
-    </a>
+      <a href="/plugins/${plugin.name}" class="block flex-1 min-w-0">
+        <div class="flex justify-between items-start">
+          <h3 class="text-lg font-semibold text-gray-900">${plugin.name}</h3>
+          <span class="text-sm text-gray-500">${plugin.installCount} installs</span>
+        </div>
+        <p class="text-gray-600 mt-1">${plugin.description}</p>
+        <div class="flex gap-2 mt-2">
+          ${plugin.tags.map(
+            (tag) =>
+              html`<span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full"
+                >${tag}</span
+              >`
+          )}
+        </div>
+      </a>
+    </div>
   `;
 }
 
@@ -75,7 +82,7 @@ function paginationLinks(page: number, total: number, q: string) {
 // Shared query logic — used by both the full page and the HTMX partial
 // ---------------------------------------------------------------------------
 
-async function queryPlugins(q: string, page: number) {
+async function queryPlugins(q: string, page: number, userId?: string) {
   const conditions = [eq(plugins.status, "approved")];
   if (q) {
     conditions.push(
@@ -89,17 +96,53 @@ async function queryPlugins(q: string, page: number) {
   const where = and(...conditions);
 
   const [rows, [{ total }]] = await Promise.all([
-    db
-      .select()
-      .from(plugins)
-      .where(where)
-      .orderBy(desc(plugins.installCount))
-      .limit(PAGE_SIZE)
-      .offset(page * PAGE_SIZE),
+    userId
+      ? db
+          .select({
+            id: plugins.id,
+            registryId: plugins.registryId,
+            name: plugins.name,
+            version: plugins.version,
+            description: plugins.description,
+            category: plugins.category,
+            tags: plugins.tags,
+            readmeHtml: plugins.readmeHtml,
+            pluginJson: plugins.pluginJson,
+            gitPath: plugins.gitPath,
+            gitSha: plugins.gitSha,
+            status: plugins.status,
+            installCount: plugins.installCount,
+            voteScore: plugins.voteScore,
+            createdAt: plugins.createdAt,
+            updatedAt: plugins.updatedAt,
+            userVote: sql<number>`coalesce(${votes.value}, 0)`.as("user_vote"),
+          })
+          .from(plugins)
+          .leftJoin(
+            votes,
+            and(eq(votes.pluginId, plugins.id), eq(votes.userId, userId))
+          )
+          .where(where)
+          .orderBy(desc(plugins.installCount))
+          .limit(PAGE_SIZE)
+          .offset(page * PAGE_SIZE)
+      : db
+          .select()
+          .from(plugins)
+          .where(where)
+          .orderBy(desc(plugins.installCount))
+          .limit(PAGE_SIZE)
+          .offset(page * PAGE_SIZE),
     db.select({ total: count() }).from(plugins).where(where),
   ]);
 
-  return { rows, total };
+  return {
+    rows: rows.map((r) => ({
+      ...r,
+      userVote: "userVote" in r ? (r.userVote as number) : 0,
+    })),
+    total,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -107,10 +150,11 @@ async function queryPlugins(q: string, page: number) {
 // ---------------------------------------------------------------------------
 
 pageRoutes.get("/partials/plugin-list", async (c) => {
+  const user = c.get("user");
   const q = (c.req.query("q") ?? "").trim();
   const page = Math.max(0, parseInt(c.req.query("page") ?? "0", 10) || 0);
 
-  const { rows, total } = await queryPlugins(q, page);
+  const { rows, total } = await queryPlugins(q, page, user?.id);
 
   return c.html(html`
     <div class="grid gap-4">
@@ -133,7 +177,7 @@ pageRoutes.get("/", async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   const page = Math.max(0, parseInt(c.req.query("page") ?? "0", 10) || 0);
 
-  const { rows, total } = await queryPlugins(q, page);
+  const { rows, total } = await queryPlugins(q, page, user?.id);
 
   const content = html`
     <div class="mb-8">
@@ -198,10 +242,17 @@ pageRoutes.get("/plugins/:name", async (c) => {
     return c.html(layout("Not Found", content, user), 404);
   }
 
-  const pluginSkills = await db
-    .select()
-    .from(skills)
-    .where(eq(skills.pluginId, plugin.id));
+  const [pluginSkills, userVoteRows] = await Promise.all([
+    db.select().from(skills).where(eq(skills.pluginId, plugin.id)),
+    user
+      ? db
+          .select({ value: votes.value })
+          .from(votes)
+          .where(and(eq(votes.pluginId, plugin.id), eq(votes.userId, user.id)))
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
+  const userVote = userVoteRows.length > 0 ? userVoteRows[0].value : 0;
 
   const content = html`
     <div class="mb-6">
@@ -209,6 +260,7 @@ pageRoutes.get("/plugins/:name", async (c) => {
     </div>
 
     <div class="flex items-center gap-3 mb-4">
+      ${voteWidget(plugin.name, plugin.voteScore, userVote, true)}
       <h1 class="text-3xl font-bold text-gray-900">${plugin.name}</h1>
       <span class="px-2 py-0.5 bg-gray-100 text-gray-700 text-sm rounded-full">
         v${plugin.version}
