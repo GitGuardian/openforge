@@ -14,6 +14,7 @@ export function layout(
         <title>${title} - OpenForge</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css" />
       </head>
       <body class="bg-gray-50 min-h-screen flex flex-col">
         <nav class="bg-white border-b border-gray-200">
@@ -61,6 +62,22 @@ export function layout(
             OpenForge &middot; Apache 2.0
           </div>
         </footer>
+        <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            var el = document.getElementById('new-comment');
+            if (el) {
+              window.easyMDE = new EasyMDE({
+                element: el,
+                spellChecker: false,
+                status: false,
+                toolbar: ['bold', 'italic', 'code', 'link', '|', 'unordered-list', 'ordered-list', '|', 'preview'],
+                minHeight: '100px',
+                placeholder: 'Write a comment...',
+              });
+            }
+          });
+        </script>
       </body>
     </html>`;
 }
