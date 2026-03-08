@@ -37,11 +37,13 @@ With the old Phase 2 split, the project milestones become:
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | CLI MVP | Complete |
-| 2 | **The Forge MVP** (this doc) | Next |
-| 3 | **Community & Indexing** (votes, comments, webhooks) | New |
-| 4 | Non-technical Submissions (was Phase 3) | Future |
-| 5 | Polish & Expand (was Phase 4) | Future |
-| 6 | Open-source Release (was Phase 5) | Future |
+| 2 | **The Forge MVP** (this doc) | Complete |
+| 3 | Community Features (votes, comments, ranking) | Next |
+| 4 | Automated Indexing & CLI Parity | Future |
+| 5 | Submissions & Curation | Future |
+| 6 | Hardening & Production Readiness | Future |
+| 7 | Internal Deployment (Railway + PyPI) | Future |
+| 8 | Open-source Release | Future |
 | Backlog | CLI Parity & Enhancements | Ongoing |
 
 ---

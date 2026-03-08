@@ -597,42 +597,73 @@ openforge/
 - Register `openforge` on npm (placeholder package).
 - Create GitHub repo for OpenForge.
 
-### Phase 1: CLI (MVP)
+### Phase 1: CLI MVP — COMPLETE
 - Core commands: `add`, `remove`, `find`, `list`, `config`.
-- All 51 agents supported for skills; Claude Code + Cursor for plugin extras.
+- All 75 agents supported for skills; Claude Code + Cursor for plugin extras.
 - Install from git repos (GitHub shorthand, URLs) — drop-in compatible with skills.sh syntax.
 - Basic telemetry (JSON POST, fire-and-forget).
-- Publish to PyPI.
+- 188 tests, 93%+ coverage, 0 pyright errors.
 
-### Phase 2: The Forge (MVP)
+### Phase 2: The Forge MVP — COMPLETE
 - Browse/search plugins indexed from registered git repos.
-- Upvote/downvote and threaded comments.
 - Serve `marketplace.json` and `.well-known/skills/index.json`.
-- Supabase Auth (email/password, magic link, optional OAuth) with allowed email domains.
-- Row Level Security on all tables.
+- Supabase Auth (email/password, magic link) with allowed email domains.
+- Row Level Security on all tables (29 policies, 2 helper functions).
 - Public and private deployment modes.
-- Webhook-driven indexing from GitHub.
-- Deploy to Railway + Supabase (first instance: `openforge.gitguardian.com`, private mode).
+- Seed script for populating registry data from git repos.
+- All 8 database tables with Drizzle schema-as-code.
 
-### Phase 3: Non-technical submissions
-- ZIP upload flow with validation.
-- Auto-MR creation on GitHub.
+### Phase 3: Community Features
+- Upvote/downvote system with UI and HTMX routes.
+- Threaded comments (one-level nesting) with UI and HTMX routes.
+- Composite ranking (installs + votes + recency).
+- Inline hardening: input sanitization on comments, CSRF on all new POST routes.
+
+### Phase 4: Automated Indexing & CLI Parity
+- GitHub webhook receiver pipeline (build + test with mock payloads locally).
+- Automated git indexing (clone + scan + upsert on webhook trigger).
+- CLI `check` + `update` commands for skill version management.
+- CLI source expansion: GitLab, SSH URLs, local paths, branch refs.
+- Inline hardening: webhook HMAC signature verification.
+
+### Phase 5: Submissions & Curation
+- ZIP upload flow with validation (magic bytes, size limits, path traversal prevention).
+- Auto-PR creation on GitHub from uploads.
 - Curator review dashboard.
-- Notification system (Slack + email).
+- Notification system (Slack + email) for submissions and reviews.
+- Inline hardening: prompt injection scanning on submitted content.
 
-### Phase 4: Polish and expand
-- Install tracking via post-install hooks.
+### Phase 6: Hardening & Production Readiness
+- Rate limiting on all endpoints (100 req/hour baseline, stricter on auth routes).
+- Security headers via Hono `secureHeaders` middleware (CSP, HSTS, X-Frame-Options).
+- Content scanning for cloned repositories.
+- SHA integrity verification for plugin/skill updates.
+- Structured logging (no console.log in production).
+- Automated tests for The Forge.
+
+### Phase 7: Internal Deployment
+- Publish CLI to PyPI.
+- Railway deployment + cloud Supabase project.
+- Wire up real GitHub webhooks (need live URL).
+- DNS/Cloudflare for `openforge.gitguardian.com` (private mode).
+- End-to-end smoke tests all endpoints.
+- First internal users.
+
+### Phase 8: Open-source Release
+- Generic Postgres support (optional Supabase dependency).
+- GDPR compliance: anonymous telemetry ID, data retention policy, data subject rights.
+- Self-hosting documentation.
+- Contributing guide.
+- Public domain + branding.
+- Announce.
+
+### Backlog
+- Pre-install security risk assessments (CLI).
+- Interactive fzf-style UX (CLI).
+- Search query telemetry.
 - Additional agent capabilities beyond skills (MCP, commands for more agents).
-- CI pipeline for plugin security scanning (ggshield, LLM prompt injection review).
-- Plugin update flow with versioning (`check`, `update` commands).
 - Admin panel for registry management.
 - Penetration testing with internal security tools.
-
-### Phase 5: Open-source release
-- Clean up for public consumption.
-- Generic Postgres support (no Supabase dependency).
-- Documentation for self-hosting.
-- Announce.
 
 ---
 
