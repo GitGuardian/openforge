@@ -55,18 +55,24 @@ export const plugins = pgTable(
 // ---------------------------------------------------------------------------
 // skills
 // ---------------------------------------------------------------------------
-export const skills = pgTable("skills", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  pluginId: uuid("plugin_id").references(() => plugins.id),
-  registryId: uuid("registry_id")
-    .notNull()
-    .references(() => registries.id),
-  name: text("name").notNull(),
-  description: text("description"),
-  skillMdPath: text("skill_md_path").notNull(),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const skills = pgTable(
+  "skills",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pluginId: uuid("plugin_id").references(() => plugins.id),
+    registryId: uuid("registry_id")
+      .notNull()
+      .references(() => registries.id),
+    name: text("name").notNull(),
+    description: text("description"),
+    skillMdPath: text("skill_md_path").notNull(),
+    metadata: jsonb("metadata"),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [unique("skills_registry_path").on(table.registryId, table.skillMdPath)],
+);
 
 // ---------------------------------------------------------------------------
 // users
