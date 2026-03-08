@@ -49,12 +49,14 @@ def _build_app() -> typer.Typer:
     from openforge.find_cmd import find_command
     from openforge.list_cmd import list_command
     from openforge.remove import remove_command
+    from openforge.update import update_command
 
     app.command("add")(add_command)
     app.command("remove")(remove_command)
     app.command("list")(list_command)
     app.command("find")(find_command)
     app.command("check")(check_command)
+    app.command("update")(update_command)
     app.add_typer(config_app, name="config")
     return app
 
