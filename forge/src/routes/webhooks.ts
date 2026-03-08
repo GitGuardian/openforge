@@ -59,12 +59,12 @@ webhookRoutes.post("/api/webhooks/github", async (c) => {
     return c.json({ error: "no repository URL in payload" }, 400);
   }
 
-  // Find matching registry by URL
+  // Find matching registry by normalized URL (strip trailing .git and slash)
+  const normalize = (url: string) => url.replace(/\.git$/, "").replace(/\/$/, "");
+  const normalizedRepoUrl = normalize(repoUrl);
   const allRegistries = await db.select().from(registries);
   const registry = allRegistries.find(
-    (r) =>
-      repoUrl.includes(r.gitUrl.replace(/\.git$/, "")) ||
-      r.gitUrl.includes(repoUrl.replace(/\.git$/, "")),
+    (r) => normalize(r.gitUrl) === normalizedRepoUrl,
   );
   if (!registry) {
     return c.json({ error: "no matching registry" }, 404);
