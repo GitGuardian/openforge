@@ -99,3 +99,74 @@ def test_find_no_results(tmp_path: Path) -> None:
         result = runner.invoke(test_app, ["find", "nonexistent"])
         assert result.exit_code == 0
         assert "No results found." in result.output
+
+
+# --- Phase 4: Remote find ---
+
+
+def test_find_remote(tmp_path: Path) -> None:
+    """--remote searches the Forge and displays results."""
+    test_app = _build_app()
+
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+        patch("openforge.find_cmd.search_forge") as mock_search,
+    ):
+        mock_search.return_value = [
+            {"name": "security-scanner", "description": "Scan vulns", "tags": ["security"]},
+        ]
+        result = runner.invoke(test_app, ["find", "security", "--remote"])
+        assert result.exit_code == 0
+        assert "security-scanner" in result.output
+        assert "forge:security-scanner" in result.output
+
+
+def test_find_remote_no_results(tmp_path: Path) -> None:
+    """--remote with no matches shows a message."""
+    test_app = _build_app()
+
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+        patch("openforge.find_cmd.search_forge") as mock_search,
+    ):
+        mock_search.return_value = []
+        result = runner.invoke(test_app, ["find", "nonexistent", "--remote"])
+        assert result.exit_code == 0
+        assert "no" in result.output.lower()
+
+
+def test_find_all_combines_local_and_remote(tmp_path: Path) -> None:
+    """--all shows both local and remote results."""
+    test_app = _build_app()
+    _make_lock(tmp_path)
+
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+        patch("openforge.find_cmd.search_forge") as mock_search,
+    ):
+        mock_search.return_value = [
+            {"name": "remote-lint", "description": "Remote linter", "tags": []},
+        ]
+        result = runner.invoke(test_app, ["find", "lint", "--all"])
+        assert result.exit_code == 0
+        # Local result
+        assert "lint" in result.output
+        # Remote result
+        assert "remote-lint" in result.output
+
+
+def test_find_remote_error_handled(tmp_path: Path) -> None:
+    """If Forge search fails, show a warning instead of crashing."""
+    test_app = _build_app()
+
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.send_event"),
+        patch("openforge.find_cmd.search_forge", side_effect=Exception("connection refused")),
+    ):
+        result = runner.invoke(test_app, ["find", "anything", "--remote"])
+        assert result.exit_code == 0
+        assert "failed" in result.output.lower() or "error" in result.output.lower()
