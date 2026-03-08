@@ -38,6 +38,9 @@ forge/supabase/.branches/
 # Build artifacts
 *.tgz
 
+# Walkthroughs (showboat demo docs, not checked in)
+.walkthroughs/
+
 # Worktrees (superpowers plugin)
 .worktrees/
 
