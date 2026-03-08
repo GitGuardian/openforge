@@ -12,6 +12,33 @@ export const pageRoutes = new Hono<AppEnv>();
 
 const PAGE_SIZE = 20;
 
+type SortOption = "trending" | "installed" | "voted" | "newest" | "updated";
+
+const VALID_SORTS: SortOption[] = [
+  "trending",
+  "installed",
+  "voted",
+  "newest",
+  "updated",
+];
+
+function getSortExpression(sort: SortOption) {
+  switch (sort) {
+    case "trending":
+      return desc(
+        sql`(${plugins.voteScore} + ${plugins.installCount})::float / power(extract(epoch from now() - ${plugins.createdAt}) / 3600 + 2, 1.8)`
+      );
+    case "installed":
+      return desc(plugins.installCount);
+    case "voted":
+      return desc(plugins.voteScore);
+    case "newest":
+      return desc(plugins.createdAt);
+    case "updated":
+      return desc(plugins.updatedAt);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers — render plugin cards and pagination
 // ---------------------------------------------------------------------------
@@ -50,11 +77,18 @@ function pluginCard(plugin: {
   `;
 }
 
-function paginationLinks(page: number, total: number, q: string) {
+function paginationLinks(
+  page: number,
+  total: number,
+  q: string,
+  sort: string
+) {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const hasPrev = page > 0;
   const hasNext = page + 1 < totalPages;
-  const qs = q ? `&q=${encodeURIComponent(q)}` : "";
+  const qs =
+    (q ? `&q=${encodeURIComponent(q)}` : "") +
+    (sort !== "trending" ? `&sort=${sort}` : "");
 
   return html`
     <div class="flex justify-between items-center mt-6">
@@ -83,7 +117,12 @@ function paginationLinks(page: number, total: number, q: string) {
 // Shared query logic — used by both the full page and the HTMX partial
 // ---------------------------------------------------------------------------
 
-async function queryPlugins(q: string, page: number, userId?: string) {
+async function queryPlugins(
+  q: string,
+  page: number,
+  userId?: string,
+  sort: SortOption = "trending"
+) {
   const conditions = [eq(plugins.status, "approved")];
   if (q) {
     conditions.push(
@@ -124,14 +163,14 @@ async function queryPlugins(q: string, page: number, userId?: string) {
             and(eq(votes.pluginId, plugins.id), eq(votes.userId, userId))
           )
           .where(where)
-          .orderBy(desc(plugins.installCount))
+          .orderBy(getSortExpression(sort))
           .limit(PAGE_SIZE)
           .offset(page * PAGE_SIZE)
       : db
           .select()
           .from(plugins)
           .where(where)
-          .orderBy(desc(plugins.installCount))
+          .orderBy(getSortExpression(sort))
           .limit(PAGE_SIZE)
           .offset(page * PAGE_SIZE),
     db.select({ total: count() }).from(plugins).where(where),
@@ -154,8 +193,12 @@ pageRoutes.get("/partials/plugin-list", async (c) => {
   const user = c.get("user");
   const q = (c.req.query("q") ?? "").trim();
   const page = Math.max(0, parseInt(c.req.query("page") ?? "0", 10) || 0);
+  const sortParam = c.req.query("sort") ?? "trending";
+  const sort: SortOption = VALID_SORTS.includes(sortParam as SortOption)
+    ? (sortParam as SortOption)
+    : "trending";
 
-  const { rows, total } = await queryPlugins(q, page, user?.id);
+  const { rows, total } = await queryPlugins(q, page, user?.id, sort);
 
   return c.html(html`
     <div class="grid gap-4">
@@ -165,7 +208,7 @@ pageRoutes.get("/partials/plugin-list", async (c) => {
             No plugins found${q ? html` matching <strong>${q}</strong>` : ""}.
           </p>`}
     </div>
-    ${paginationLinks(page, total, q)}
+    ${paginationLinks(page, total, q, sort)}
   `);
 });
 
@@ -177,8 +220,12 @@ pageRoutes.get("/", async (c) => {
   const user = c.get("user");
   const q = (c.req.query("q") ?? "").trim();
   const page = Math.max(0, parseInt(c.req.query("page") ?? "0", 10) || 0);
+  const sortParam = c.req.query("sort") ?? "trending";
+  const sort: SortOption = VALID_SORTS.includes(sortParam as SortOption)
+    ? (sortParam as SortOption)
+    : "trending";
 
-  const { rows, total } = await queryPlugins(q, page, user?.id);
+  const { rows, total } = await queryPlugins(q, page, user?.id, sort);
 
   const content = html`
     <div class="mb-8">
@@ -193,12 +240,30 @@ pageRoutes.get("/", async (c) => {
         hx-get="/partials/plugin-list"
         hx-trigger="input changed delay:300ms"
         hx-target="#plugin-list"
-        hx-include="this"
+        hx-include="[name=q],[name=sort]"
         name="q"
         value="${q}"
         placeholder="Search plugins and skills..."
         class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
       />
+    </div>
+
+    <div class="flex items-center gap-2 mb-4">
+      <span class="text-sm text-gray-500">Sort by:</span>
+      <select
+        hx-get="/partials/plugin-list"
+        hx-trigger="change"
+        hx-target="#plugin-list"
+        hx-include="[name=q]"
+        name="sort"
+        class="text-sm border rounded px-2 py-1 bg-white"
+      >
+        <option value="trending" ${sort === "trending" ? "selected" : ""}>Trending</option>
+        <option value="installed" ${sort === "installed" ? "selected" : ""}>Most installed</option>
+        <option value="voted" ${sort === "voted" ? "selected" : ""}>Highest voted</option>
+        <option value="newest" ${sort === "newest" ? "selected" : ""}>Newest</option>
+        <option value="updated" ${sort === "updated" ? "selected" : ""}>Recently updated</option>
+      </select>
     </div>
 
     <div id="plugin-list">
@@ -209,7 +274,7 @@ pageRoutes.get("/", async (c) => {
               No plugins found${q ? html` matching <strong>${q}</strong>` : ""}.
             </p>`}
       </div>
-      ${paginationLinks(page, total, q)}
+      ${paginationLinks(page, total, q, sort)}
     </div>
   `;
 
