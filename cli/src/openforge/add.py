@@ -22,6 +22,7 @@ from openforge.plugins import detect_content
 from openforge.providers.git import GitProvider
 from openforge.providers.local import LocalProvider
 from openforge.providers.source_parser import parse_source
+from openforge.providers.wellknown import WellKnownProvider
 from openforge.telemetry import send_event
 from openforge.types import (
     ContentType,
@@ -33,10 +34,10 @@ from openforge.types import (
 
 _console = Console()
 
-_PROVIDERS = [GitProvider(), LocalProvider()]
+_PROVIDERS = [GitProvider(), LocalProvider(), WellKnownProvider()]
 
 
-def get_provider(source: Source) -> GitProvider | LocalProvider:
+def get_provider(source: Source) -> GitProvider | LocalProvider | WellKnownProvider:
     """Return the first provider that matches the source."""
     for p in _PROVIDERS:
         if p.matches(source):
