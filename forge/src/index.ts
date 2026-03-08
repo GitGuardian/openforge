@@ -8,6 +8,7 @@ import { pageRoutes } from "./routes/pages";
 import { apiRoutes } from "./routes/api";
 import { authRoutes } from "./routes/auth";
 import { voteRoutes } from "./routes/votes";
+import { commentRoutes } from "./routes/comments";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -24,6 +25,7 @@ app.use("/public/*", serveStatic({ root: "./" }));
 app.route("/", healthRoutes);
 app.route("/", authRoutes);
 app.route("/", voteRoutes);
+app.route("/", commentRoutes);
 app.route("/", apiRoutes);
 app.route("/", pageRoutes);
 
