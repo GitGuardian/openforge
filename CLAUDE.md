@@ -17,6 +17,7 @@ See `docs/plans/2026-03-06-openforge-platform.md` for the full PRD.
 See `docs/plans/2026-03-06-openforge-architecture-design.md` for the architecture design.
 See `docs/plans/2026-03-06-phase1-cli-mvp-design.md` for the Phase 1 CLI MVP design.
 See `docs/plans/2026-03-06-phase2-forge-mvp-design.md` for the Phase 2 Forge MVP design.
+See `docs/plans/2026-03-08-phase3-community-features-design.md` for the Phase 3 Community Features design.
 
 ---
 
