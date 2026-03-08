@@ -24,7 +24,7 @@ function formatDate(date: Date): string {
   });
 }
 
-function commentBody(
+export function commentBody(
   comment: CommentRow,
   user: AppUser | null,
   pluginName: string,

@@ -5,14 +5,23 @@ import { db } from "../db";
 import { comments, plugins, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { checkRateLimit } from "../lib/rate-limit";
-import { renderMarkdown } from "../lib/markdown";
 import type { AppEnv } from "../types";
-import { commentSection } from "../views/components/comment-section";
-import { html, raw } from "hono/html";
+import { html } from "hono/html";
+import {
+  commentSection,
+  commentBody,
+  type CommentRow,
+} from "../views/components/comment-section";
 
 export const commentRoutes = new Hono<AppEnv>();
 
 const MAX_BODY_LENGTH = 10_000;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuid(s: string): boolean {
+  return UUID_RE.test(s);
+}
 
 // ---------------------------------------------------------------------------
 // Helper: validate plugin exists, return its ID
@@ -88,6 +97,9 @@ commentRoutes.post("/plugins/:name/comments", async (c) => {
   }
 
   // Validate parent_id — enforce one-level nesting
+  if (parentId && !isValidUuid(parentId)) {
+    return c.text("Invalid parent_id format", 400);
+  }
   if (parentId) {
     const [parent] = await db
       .select({
@@ -121,26 +133,19 @@ commentRoutes.post("/plugins/:name/comments", async (c) => {
     })
     .returning();
 
-  // Return HTMX partial for the new comment
-  const renderedBody = renderMarkdown(inserted.body);
-  const displayName = user.displayName ?? user.email.split("@")[0];
-  const isReply = !!parentId;
+  // Return HTMX partial for the new comment (reuse shared renderer)
+  const commentRow: CommentRow = {
+    id: inserted.id,
+    body: inserted.body,
+    parentId: inserted.parentId,
+    createdAt: inserted.createdAt,
+    updatedAt: inserted.updatedAt,
+    userId: user.id,
+    userEmail: user.email,
+    userDisplayName: user.displayName ?? null,
+  };
 
-  return c.html(html`
-    <div
-      id="comment-${inserted.id}"
-      class="${isReply
-        ? "ml-8 border-l-2 border-gray-200 pl-4"
-        : ""} py-3"
-    >
-      <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-        <span class="font-medium text-gray-700">${displayName}</span>
-        <span>&middot;</span>
-        <time>just now</time>
-      </div>
-      <div class="prose prose-sm max-w-none">${raw(renderedBody)}</div>
-    </div>
-  `);
+  return c.html(commentBody(commentRow, user, pluginName, !!parentId));
 });
 
 // ---------------------------------------------------------------------------
@@ -150,6 +155,7 @@ commentRoutes.post("/plugins/:name/comments", async (c) => {
 commentRoutes.patch("/plugins/:name/comments/:id", async (c) => {
   const user = requireAuth(c);
   const commentId = c.req.param("id");
+  if (!isValidUuid(commentId)) return c.text("Invalid comment ID", 400);
 
   // Verify ownership
   const [comment] = await db
@@ -183,45 +189,19 @@ commentRoutes.patch("/plugins/:name/comments/:id", async (c) => {
     .where(eq(comments.id, commentId))
     .returning();
 
-  const renderedBody = renderMarkdown(updated.body);
-  const displayName = user.displayName ?? user.email.split("@")[0];
   const pluginName = c.req.param("name");
+  const commentRow: CommentRow = {
+    id: updated.id,
+    body: updated.body,
+    parentId: updated.parentId,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    userId: user.id,
+    userEmail: user.email,
+    userDisplayName: user.displayName ?? null,
+  };
 
-  return c.html(html`
-    <div
-      id="comment-${updated.id}"
-      class="${updated.parentId
-        ? "ml-8 border-l-2 border-gray-200 pl-4"
-        : ""} py-3"
-    >
-      <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-        <span class="font-medium text-gray-700">${displayName}</span>
-        <span>&middot;</span>
-        <time>${updated.createdAt.toLocaleDateString()}</time>
-        <span class="italic">(edited)</span>
-      </div>
-      <div class="prose prose-sm max-w-none">${raw(renderedBody)}</div>
-      <div class="flex gap-3 mt-2 text-sm">
-        <button
-          hx-get="/plugins/${pluginName}/comments/${updated.id}/edit"
-          hx-target="#comment-${updated.id}"
-          hx-swap="outerHTML"
-          class="text-gray-500 hover:text-gray-700"
-        >
-          Edit
-        </button>
-        <button
-          hx-delete="/plugins/${pluginName}/comments/${updated.id}"
-          hx-target="#comment-${updated.id}"
-          hx-swap="delete"
-          hx-confirm="Delete this comment?"
-          class="text-red-500 hover:text-red-700"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  `);
+  return c.html(commentBody(commentRow, user, pluginName, !!updated.parentId));
 });
 
 // ---------------------------------------------------------------------------
@@ -231,6 +211,7 @@ commentRoutes.patch("/plugins/:name/comments/:id", async (c) => {
 commentRoutes.get("/plugins/:name/comments/:id/edit", async (c) => {
   const user = requireAuth(c);
   const commentId = c.req.param("id");
+  if (!isValidUuid(commentId)) return c.text("Invalid comment ID", 400);
   const pluginName = c.req.param("name");
 
   const [comment] = await db
@@ -290,6 +271,7 @@ commentRoutes.get("/plugins/:name/comments/:id/edit", async (c) => {
 commentRoutes.delete("/plugins/:name/comments/:id", async (c) => {
   const user = requireAuth(c);
   const commentId = c.req.param("id");
+  if (!isValidUuid(commentId)) return c.text("Invalid comment ID", 400);
 
   const [comment] = await db
     .select()
@@ -300,12 +282,13 @@ commentRoutes.delete("/plugins/:name/comments/:id", async (c) => {
   if (!comment) return c.text("Comment not found", 404);
   if (comment.userId !== user.id) return c.text("Not your comment", 403);
 
-  // Delete replies first (if top-level comment)
-  if (!comment.parentId) {
-    await db.delete(comments).where(eq(comments.parentId, commentId));
-  }
-
-  await db.delete(comments).where(eq(comments.id, commentId));
+  // Delete replies and parent atomically in a transaction
+  await db.transaction(async (tx) => {
+    if (!comment.parentId) {
+      await tx.delete(comments).where(eq(comments.parentId, commentId));
+    }
+    await tx.delete(comments).where(eq(comments.id, commentId));
+  });
 
   return c.body(null, 200);
 });

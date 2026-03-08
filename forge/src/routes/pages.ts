@@ -433,5 +433,5 @@ pageRoutes.get("/plugins/:name", async (c) => {
     ${commentSection(plugin.name, allComments, user)}
   `;
 
-  return c.html(layout(plugin.name, content, user));
+  return c.html(layout(plugin.name, content, user, { includeEasyMDE: true }));
 });

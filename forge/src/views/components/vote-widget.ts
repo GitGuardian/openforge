@@ -10,15 +10,15 @@ export function voteWidget(
   const downActive = userVote === -1;
   const upValue = upActive ? 0 : 1;
   const downValue = downActive ? 0 : -1;
+  const context = showDownvote ? "detail" : "card";
 
   return html`
     <div id="vote-${pluginName}" class="flex items-center gap-1">
       <button
         hx-post="/plugins/${pluginName}/vote"
-        hx-vals='{"value":${upValue}}'
+        hx-vals='{"value":${upValue},"context":"${context}"}'
         hx-target="#vote-${pluginName}"
         hx-swap="outerHTML"
-        name="detail-vote"
         class="p-1 rounded hover:bg-gray-100 ${upActive ? "text-orange-500" : "text-gray-400"}"
         title="Upvote"
       >
@@ -29,10 +29,9 @@ export function voteWidget(
         ? html`
             <button
               hx-post="/plugins/${pluginName}/vote"
-              hx-vals='{"value":${downValue}}'
+              hx-vals='{"value":${downValue},"context":"${context}"}'
               hx-target="#vote-${pluginName}"
               hx-swap="outerHTML"
-              name="detail-vote"
               class="p-1 rounded hover:bg-gray-100 ${downActive ? "text-blue-500" : "text-gray-400"}"
               title="Downvote"
             >

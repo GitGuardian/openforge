@@ -58,7 +58,21 @@ voteRoutes.post("/plugins/:name/vote", async (c) => {
   }
 
   // Parse and validate value
-  const body = await c.req.json();
+  let body: { value?: number; context?: string };
+  const contentType = c.req.header("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.text("Invalid JSON body", 400);
+    }
+  } else {
+    const form = await c.req.parseBody();
+    body = {
+      value: form.value !== undefined ? Number(form.value) : undefined,
+      context: form.context ? String(form.context) : undefined,
+    };
+  }
   const value = body.value;
   if (value !== -1 && value !== 0 && value !== 1) {
     return c.text("Invalid vote value", 400);
@@ -72,61 +86,70 @@ voteRoutes.post("/plugins/:name/vote", async (c) => {
     }
   }
 
-  // Find the plugin
-  const [plugin] = await db
-    .select({ id: plugins.id, voteScore: plugins.voteScore })
-    .from(plugins)
-    .where(eq(plugins.name, pluginName))
-    .limit(1);
+  // Wrap all DB operations in a transaction to prevent race conditions
+  const result = await db.transaction(async (tx) => {
+    // Find the plugin
+    const [plugin] = await tx
+      .select({ id: plugins.id, voteScore: plugins.voteScore })
+      .from(plugins)
+      .where(eq(plugins.name, pluginName))
+      .limit(1);
 
-  if (!plugin) {
+    if (!plugin) {
+      return null;
+    }
+
+    // Get existing vote (if any)
+    const [existingVote] = await tx
+      .select()
+      .from(votes)
+      .where(and(eq(votes.userId, user.id), eq(votes.pluginId, plugin.id)))
+      .limit(1);
+
+    const oldValue = existingVote?.value ?? 0;
+
+    if (value === 0) {
+      // Remove vote
+      if (existingVote) {
+        await tx
+          .delete(votes)
+          .where(and(eq(votes.userId, user.id), eq(votes.pluginId, plugin.id)));
+      }
+    } else if (existingVote) {
+      // Update existing vote
+      await tx
+        .update(votes)
+        .set({ value })
+        .where(and(eq(votes.userId, user.id), eq(votes.pluginId, plugin.id)));
+    } else {
+      // Insert new vote
+      await tx.insert(votes).values({
+        userId: user.id,
+        pluginId: plugin.id,
+        value,
+      });
+    }
+
+    // Update plugin vote_score atomically
+    const delta = value - oldValue;
+    if (delta !== 0) {
+      await tx
+        .update(plugins)
+        .set({ voteScore: sql`${plugins.voteScore} + ${delta}` })
+        .where(eq(plugins.id, plugin.id));
+    }
+
+    return { plugin, delta, value };
+  });
+
+  if (!result) {
     return c.text("Plugin not found", 404);
   }
 
-  // Get existing vote (if any)
-  const [existingVote] = await db
-    .select()
-    .from(votes)
-    .where(and(eq(votes.userId, user.id), eq(votes.pluginId, plugin.id)))
-    .limit(1);
-
-  const oldValue = existingVote?.value ?? 0;
-
-  if (value === 0) {
-    // Remove vote
-    if (existingVote) {
-      await db
-        .delete(votes)
-        .where(and(eq(votes.userId, user.id), eq(votes.pluginId, plugin.id)));
-    }
-  } else if (existingVote) {
-    // Update existing vote
-    await db
-      .update(votes)
-      .set({ value })
-      .where(and(eq(votes.userId, user.id), eq(votes.pluginId, plugin.id)));
-  } else {
-    // Insert new vote
-    await db.insert(votes).values({
-      userId: user.id,
-      pluginId: plugin.id,
-      value,
-    });
-  }
-
-  // Update plugin vote_score atomically
-  const delta = value - oldValue;
-  if (delta !== 0) {
-    await db
-      .update(plugins)
-      .set({ voteScore: sql`${plugins.voteScore} + ${delta}` })
-      .where(eq(plugins.id, plugin.id));
-  }
-
   // Return updated widget
-  const newScore = plugin.voteScore + delta;
-  const userVote = value;
-  const showDownvote = c.req.header("HX-Trigger-Name") === "detail-vote";
+  const newScore = result.plugin.voteScore + result.delta;
+  const userVote = result.value;
+  const showDownvote = body.context === "detail";
 
   return c.html(voteWidget(pluginName, newScore, userVote, showDownvote));
 });

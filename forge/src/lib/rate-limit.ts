@@ -5,6 +5,10 @@
  * Replaced by proper middleware in Phase 6 (Hardening).
  */
 
+// Known limitation: keys for inactive users are never evicted, so the store
+// grows unboundedly over the lifetime of the process. Acceptable for MVP
+// traffic levels; must be replaced with a proper eviction strategy (e.g. LRU
+// or external store) in Phase 6 (Hardening).
 const store = new Map<string, number[]>();
 
 export function checkRateLimit(
