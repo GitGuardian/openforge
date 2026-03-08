@@ -18,9 +18,11 @@ Send a message to both cli-dev and forge-dev with the following (adapt as needed
 > 3. Update your auto-memory files with any insights, patterns, or decisions worth preserving.
 > 4. Report back what you committed and updated."
 
-### 3. Wait for agents to finish
+### 3. Wait for agents to report, then shut them down
 
 Wait for both agents to report back. If an agent has no changes, that's fine.
+
+Once each agent reports back, send a `shutdown_request` to them via `SendMessage` (type: `"shutdown_request"`). Wait for both to confirm shutdown.
 
 ### 4. Update root CLAUDE.md
 
@@ -64,6 +66,12 @@ Uncommitted work: [none / list any]
 Unpushed commits: [count]
 ```
 
-### 9. Do NOT terminate agents
+### 9. Delete the team
 
-Claude Code manages agent lifecycle. Just let them idle — they'll be cleaned up when the session ends.
+After both agents have confirmed shutdown, clean up team resources:
+
+```
+TeamDelete
+```
+
+This removes the team config and task list directories.

@@ -21,17 +21,28 @@
 
 set -euo pipefail
 
-# --- Find the current tmux window ---
-WINDOW=$(tmux display-message -p '#{session_name}:#{window_index}')
+# --- Discover lead pane ---
+# Use $TMUX_PANE (the pane this shell runs in), NOT display-message -p
+# (which returns the *active* pane, which may have shifted when agents were spawned).
+LEAD="${TMUX_PANE}"
+
+if [ -z "$LEAD" ]; then
+    echo "ERROR: \$TMUX_PANE is not set. Are you running inside tmux?" >&2
+    exit 1
+fi
+
+# Verify the pane actually exists
+if ! tmux display-message -t "$LEAD" -p '#{pane_id}' &>/dev/null; then
+    echo "ERROR: Pane $LEAD does not exist. \$TMUX_PANE may be stale." >&2
+    exit 1
+fi
+
+# --- Find the window containing the lead pane ---
+WINDOW=$(tmux display-message -t "$LEAD" -p '#{session_name}:#{window_index}')
 
 # --- Get window dimensions ---
 W=$(tmux display-message -t "$WINDOW" -p '#{window_width}')
 H=$(tmux display-message -t "$WINDOW" -p '#{window_height}')
-
-# --- Discover panes ---
-# Use $TMUX_PANE (the pane this shell runs in), NOT display-message -p
-# (which returns the *active* pane, which may have shifted when agents were spawned).
-LEAD="${TMUX_PANE}"
 
 # The other panes are agents, ordered by pane index (spawn order).
 # cli-dev was spawned first, forge-dev second.
@@ -55,9 +66,9 @@ echo "Discovered panes: lead=$LEAD cli=$CLI forge=$FORGE"
 
 # --- Set pane-border-format (descriptive titles) ---
 # Use pane-border-format, NOT pane_title — Claude Code overwrites pane_title.
-tmux set-option -p -t "$LEAD" pane-border-format '#{?pane_active,#[reverse],}#{pane_index}#[default] "team-lead"'
-tmux set-option -p -t "$CLI" pane-border-format '#{?pane_active,#[reverse],}#{pane_index}#[default] "cli-dev - Python CLI"'
-tmux set-option -p -t "$FORGE" pane-border-format '#{?pane_active,#[reverse],}#{pane_index}#[default] "forge-dev - Forge web app"'
+tmux set-option -p -t "$LEAD" pane-border-format '#{?pane_active,#[reverse],}#{pane_index}#[default] "openforge:team-lead"'
+tmux set-option -p -t "$CLI" pane-border-format '#{?pane_active,#[reverse],}#{pane_index}#[default] "openforge:cli-dev - Python CLI"'
+tmux set-option -p -t "$FORGE" pane-border-format '#{?pane_active,#[reverse],}#{pane_index}#[default] "openforge:forge-dev - Forge web app"'
 
 echo "Pane titles set."
 

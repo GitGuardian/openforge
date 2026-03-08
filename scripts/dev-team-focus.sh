@@ -29,7 +29,7 @@ WINDOW=""
 for win in $(tmux list-windows -a -F '#{session_name}:#{window_index}'); do
     for pane_id in $(tmux list-panes -t "$win" -F '#{pane_id}' 2>/dev/null); do
         fmt=$(tmux show-options -p -t "$pane_id" -v pane-border-format 2>/dev/null || true)
-        if echo "$fmt" | grep -q '"team-lead"'; then
+        if echo "$fmt" | grep -q '"openforge:team-lead"'; then
             WINDOW="$win"
             break 2
         fi
@@ -37,7 +37,7 @@ for win in $(tmux list-windows -a -F '#{session_name}:#{window_index}'); do
 done
 
 if [ -z "$WINDOW" ]; then
-    echo "ERROR: Could not find a tmux window with a 'team-lead' pane." >&2
+    echo "ERROR: Could not find a tmux window with an 'openforge:team-lead' pane." >&2
     echo "Is the dev team running? Start it with /dev-team first." >&2
     exit 1
 fi
@@ -59,9 +59,9 @@ discover_pane() {
     done
 }
 
-LEAD=$(discover_pane "team-lead")
-CLI=$(discover_pane "cli-dev")
-FORGE=$(discover_pane "forge-dev")
+LEAD=$(discover_pane "openforge:team-lead")
+CLI=$(discover_pane "openforge:cli-dev")
+FORGE=$(discover_pane "openforge:forge-dev")
 
 # Validate all panes found
 for name in LEAD CLI FORGE; do
