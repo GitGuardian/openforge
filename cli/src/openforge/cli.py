@@ -44,6 +44,7 @@ def get_user_config_dir() -> Path:
 def _build_app() -> typer.Typer:
     """Register all commands and return the app. Lazy to avoid circular imports."""
     from openforge.add import add_command
+    from openforge.check import check_command
     from openforge.config import config_app
     from openforge.find_cmd import find_command
     from openforge.list_cmd import list_command
@@ -53,6 +54,7 @@ def _build_app() -> typer.Typer:
     app.command("remove")(remove_command)
     app.command("list")(list_command)
     app.command("find")(find_command)
+    app.command("check")(check_command)
     app.add_typer(config_app, name="config")
     return app
 
