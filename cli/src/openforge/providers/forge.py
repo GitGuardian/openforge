@@ -67,9 +67,15 @@ class ForgeProvider:
             msg = f"Plugin '{plugin_name}' not found in Forge"
             raise ValueError(msg)
 
-        # Extract git URL from source field and delegate to GitProvider
-        pkg_source = cast(dict[str, str], match.get("source", {}))
-        git_url = pkg_source.get("url", "")
+        # Extract git URL — try downloadUrl first, then source.url, then gitPath
+        git_url = str(match.get("downloadUrl", ""))
+        if not git_url:
+            pkg_source = cast(dict[str, str], match.get("source", {}))
+            git_url = pkg_source.get("url", "")
+        if not git_url:
+            git_path = str(match.get("gitPath", ""))
+            if git_path:
+                git_url = f"https://github.com/{git_path}"
         if not git_url:
             msg = f"Plugin '{plugin_name}' has no source URL"
             raise ValueError(msg)
