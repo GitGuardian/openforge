@@ -15,7 +15,7 @@
 # ┌───────────────┬──────────┐
 # │               │ cli-dev  │
 # │  team-lead    ├──────────┤
-# │  (~45%)       │forge-dev │
+# │  (~40%)       │forge-dev │
 # │               │          │
 # └───────────────┴──────────┘
 
@@ -89,8 +89,8 @@ print(f'{csum & 0xffff:04x},{layout}')
 "
 }
 
-# --- Apply default layout: lead 45%, right column 55% split vertically ---
-lead_w=$((W * 45 / 100))
+# --- Apply default layout: lead 40%, right column 60% split vertically ---
+lead_w=$((W * 40 / 100))
 right_w=$((W - lead_w - 1))  # -1 for border
 top_h=$((H / 2))
 bot_h=$((H - top_h - 1))  # -1 for border
@@ -105,4 +105,4 @@ tmux select-layout -t "$WINDOW" "$result"
 # Select the lead pane
 tmux select-pane -t "$LEAD"
 
-echo "Default layout applied (${W}x${H}). team-lead: 45%, cli-dev + forge-dev: 55%."
+echo "Default layout applied (${W}x${H}). team-lead: 40%, cli-dev + forge-dev: 60%."

@@ -118,8 +118,8 @@ H=$WIN_HEIGHT
 
 if [ "$agent_name" = "reset" ]; then
     # --- Reset to default layout ---
-    # Lead: 45%, right column: 55% split vertically
-    lead_w=$((W * 45 / 100))
+    # Lead: 40%, right column: 60% split vertically
+    lead_w=$((W * 40 / 100))
     right_w=$((W - lead_w - 1))  # -1 for border
     top_h=$((H / 2))
     bot_h=$((H - top_h - 1))  # -1 for border
