@@ -4,7 +4,8 @@ import { eq, ilike, or, and, desc, sql, count } from "drizzle-orm";
 import { layout } from "../views/layout";
 import { voteWidget } from "../views/components/vote-widget";
 import { db } from "../db";
-import { plugins, skills, votes } from "../db/schema";
+import { plugins, skills, votes, comments, users } from "../db/schema";
+import { commentSection } from "../views/components/comment-section";
 import type { AppEnv } from "../types";
 
 export const pageRoutes = new Hono<AppEnv>();
@@ -242,7 +243,7 @@ pageRoutes.get("/plugins/:name", async (c) => {
     return c.html(layout("Not Found", content, user), 404);
   }
 
-  const [pluginSkills, userVoteRows] = await Promise.all([
+  const [pluginSkills, userVoteRows, allComments] = await Promise.all([
     db.select().from(skills).where(eq(skills.pluginId, plugin.id)),
     user
       ? db
@@ -251,6 +252,20 @@ pageRoutes.get("/plugins/:name", async (c) => {
           .where(and(eq(votes.pluginId, plugin.id), eq(votes.userId, user.id)))
           .limit(1)
       : Promise.resolve([]),
+    db
+      .select({
+        id: comments.id,
+        body: comments.body,
+        parentId: comments.parentId,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        userId: comments.userId,
+        userEmail: users.email,
+        userDisplayName: users.displayName,
+      })
+      .from(comments)
+      .innerJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.pluginId, plugin.id)),
   ]);
   const userVote = userVoteRows.length > 0 ? userVoteRows[0].value : 0;
 
@@ -348,6 +363,9 @@ pageRoutes.get("/plugins/:name", async (c) => {
           </div>
         `
       : ""}
+
+    <!-- Comments -->
+    ${commentSection(plugin.name, allComments, user)}
   `;
 
   return c.html(layout(plugin.name, content, user));
