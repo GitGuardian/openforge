@@ -7,6 +7,7 @@ import { healthRoutes } from "./routes/health";
 import { pageRoutes } from "./routes/pages";
 import { apiRoutes } from "./routes/api";
 import { authRoutes } from "./routes/auth";
+import { voteRoutes } from "./routes/votes";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -19,9 +20,10 @@ app.use("*", authMiddleware);
 // Static files
 app.use("/public/*", serveStatic({ root: "./" }));
 
-// Routes — auth routes before pages (more specific first)
+// Routes — more specific routes first
 app.route("/", healthRoutes);
 app.route("/", authRoutes);
+app.route("/", voteRoutes);
 app.route("/", apiRoutes);
 app.route("/", pageRoutes);
 
