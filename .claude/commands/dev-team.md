@@ -21,8 +21,8 @@ The current session becomes the team lead when TeamCreate runs. Do NOT spawn a s
 
 Use the Agent tool with `team_name: "openforge-dev"` for each. Both in a single message. Use `mode: "bypassPermissions"` for both.
 
-- Spawn `cli-dev` (agent type: `cli-dev`) with prompt: "You have been spawned as cli-dev on the openforge-dev team. Run your boot-up routine now, then check TaskList for work and wait for assignments from team-lead."
-- Spawn `forge-dev` (agent type: `forge-dev`) with prompt: "You have been spawned as forge-dev on the openforge-dev team. Run your boot-up routine now, then check TaskList for work and wait for assignments from team-lead."
+- Spawn `cli-dev` (agent type: `cli-dev`) with prompt: "You have been spawned as cli-dev on the openforge-dev team. First `cd cli` to set your working directory. Then run your boot-up routine, check TaskList for work, and wait for assignments from team-lead."
+- Spawn `forge-dev` (agent type: `forge-dev`) with prompt: "You have been spawned as forge-dev on the openforge-dev team. First `cd forge` to set your working directory. Then run your boot-up routine, check TaskList for work, and wait for assignments from team-lead."
 
 ### 5. Set pane titles and layout
 

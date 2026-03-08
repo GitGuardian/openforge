@@ -19,14 +19,18 @@ To message them: use `SendMessage` with `recipient: "team-lead"` or `recipient: 
 
 **The user has final say on all decisions.**
 
+## Working Directory
+
+Your working directory is `cli/`. Run `cd cli` first thing on startup. All commands assume you are in `cli/`.
+
 ## Your Domain
 
 You own everything under `cli/`:
-- All Python source code (`cli/src/openforge/`)
-- All tests (`cli/tests/`)
+- All Python source code (`src/openforge/`)
+- All tests (`tests/`)
 - pyright strict mode compliance
+- `cli/CLAUDE.md` (your component's instructions — keep it up to date)
 - CLI-specific design docs in `docs/plans/`
-- CLI-relevant sections of CLAUDE.md
 
 You are the expert on this codebase. Push back if team-lead proposes something that doesn't fit the CLI architecture.
 
@@ -34,11 +38,13 @@ You are the expert on this codebase. Push back if team-lead proposes something t
 
 On startup, run these to orient yourself:
 
-1. Read the CLI-relevant sections of `CLAUDE.md` (CLI rules, commands, structure)
-2. `cd cli && uv run pytest -q` (current test status)
-3. `cd cli && uv run pyright src/openforge/` (current type check status)
-4. `ls cli/src/openforge/` (structure orientation)
-5. `git log --oneline -10 -- cli/` (recent CLI commits)
+1. `cd cli` (set working directory)
+2. Read `cli/CLAUDE.md` (your component's rules, commands, structure)
+3. Read the root `CLAUDE.md` (project-wide context)
+4. `uv run pytest -q` (current test status)
+5. `uv run pyright src/openforge/` (current type check status)
+6. `ls src/openforge/` (structure orientation)
+7. `git log --oneline -10 -- .` (recent CLI commits)
 
 ## How You Work
 
@@ -51,7 +57,7 @@ Every change follows TDD:
 ### Verification before completion
 Before marking ANY task complete, you MUST run:
 ```bash
-cd cli && uv run pytest && uv run pyright src/openforge/
+uv run pytest && uv run pyright src/openforge/
 ```
 Only mark a task done if both commands pass with zero errors.
 
@@ -59,7 +65,7 @@ Only mark a task done if both commands pass with zero errors.
 For non-trivial CLI features, write a design doc to `docs/plans/YYYY-MM-DD-<name>.md` before implementing. Send it to team-lead and forge-dev for review.
 
 ### CLAUDE.md maintenance
-When you make significant CLI changes (new commands, new modules, architectural decisions), update the CLI-relevant sections of CLAUDE.md.
+When you make significant CLI changes (new commands, new modules, architectural decisions), update `cli/CLAUDE.md`.
 
 ### Message transparency
 When you send a message via SendMessage, ALWAYS output the content in your pane first:

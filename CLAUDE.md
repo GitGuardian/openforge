@@ -22,65 +22,15 @@ See `docs/plans/2026-03-08-phase3-community-features-implementation.md` for the 
 
 ---
 
-## Stack
+## Component Instructions
 
-### The Forge
-
-| Layer | Technology | Notes |
-|-------|-----------|-------|
-| Runtime | Bun | Use `bun` for everything (install, run, test). |
-| Server | Hono | Lightweight, Express-like. Routes return HTML or JSON. |
-| Interactivity | HTMX | No client-side JS framework. Server returns HTML fragments. |
-| Styling | Tailwind CSS (CDN) | Utility classes only. No build step for CSS. |
-| Database | Supabase (Postgres + RLS) | Managed Postgres with Row Level Security on all tables. |
-| ORM | Drizzle | Type-safe, schema-as-code. Generates SQL migrations. |
-| Auth | Supabase Auth | Email/password, magic link, OAuth providers. |
-| Deploy | Railway | Dockerfile-based, behind Cloudflare. Push to main = deployed. |
-
-### CLI
-
-| Layer | Technology | Notes |
-|-------|-----------|-------|
-| Language | Python 3.10+ | Strictly typed (pyright strict mode). |
-| Framework | Typer | CLI framework with auto-generated help. |
-| Distribution | PyPI | Installed via `uvx openforge`. |
-| Telemetry | JSON POST to the Forge | Fire-and-forget, disabled via `DO_NOT_TRACK=1`. |
+Each component has its own CLAUDE.md with stack, commands, rules, and key files:
+- **The Forge:** See `forge/CLAUDE.md`
+- **CLI:** See `cli/CLAUDE.md`
 
 ---
 
-## Commands
-
-### The Forge
-
-```bash
-cd forge
-bun install              # Install dependencies
-supabase start           # Start local Supabase (Postgres, Auth, Studio)
-bun run dev              # Start dev server with hot reload
-bun run start            # Start production server
-bun run db:generate      # Generate migration from schema changes
-bun run db:migrate       # Apply migrations to database
-bun run db:studio        # Open Drizzle Studio (database GUI)
-bun run typecheck        # Run TypeScript type checking
-bun run seed -- --repo <url> --name <registry>  # Seed database from a git repo
-supabase stop            # Stop local Supabase
-```
-
-### CLI
-
-```bash
-cd cli
-uv sync                  # Install dependencies
-uv run pytest            # Run tests
-uv run pyright           # Type check (strict mode)
-uv run openforge --help     # Run CLI locally
-uv run openforge --version  # Show version
-uv run pre-commit run --all-files  # Run all pre-commit hooks
-```
-
----
-
-## Project structure
+## Project Structure
 
 ```
 openforge/
@@ -153,61 +103,7 @@ openforge/
 
 ## Rules
 
-Follow these strictly. They prevent common failure modes.
-
-### Forge rules
-
-**Always use Drizzle for database queries.**
-Use the Drizzle client (`forge/src/db/index.ts`) and schema (`forge/src/db/schema.ts`) for all database operations. Never write raw SQL strings in route handlers.
-
-**Always use HTMX for interactivity.**
-Do not add React, Vue, or any client-side JavaScript framework. Do not write inline `<script>` tags for interactivity. Use HTMX attributes (`hx-get`, `hx-post`, `hx-target`, `hx-swap`) to make the page dynamic. The server returns HTML fragments.
-
-**Always use Tailwind utility classes for styling.**
-Do not create CSS files or `<style>` tags. Use Tailwind classes directly on HTML elements. The CDN is loaded in the layout.
-
-**After schema changes, always run generate + migrate.**
-Whenever you modify `forge/src/db/schema.ts`, run:
-```bash
-cd forge && bun run db:generate && bun run db:migrate
-```
-
-**Register new routes in `forge/src/index.ts`.**
-After creating a new route file, import it and register with `app.route("/", yourRoutes)`. Routes won't work until registered.
-
-**User identity comes from Supabase Auth middleware.**
-Access the current user via `c.get("user")` in any route. The auth middleware in `forge/src/middleware/auth.ts` handles session validation against Supabase Auth. RLS enforces permissions at the database level.
-
-### CLI rules
-
-**Use Typer for all CLI commands.**
-Every command is a Typer command. Use type annotations for arguments and options.
-
-**All Python code must be strictly typed.**
-Every function signature must have full type annotations (parameters and return types). Use `dataclass`, `TypedDict`, `Protocol`, and `Enum` where appropriate. No `Any` unless truly unavoidable. Run `pyright` in strict mode — the CI and `pyproject.toml` must enforce this. Prefer `from __future__ import annotations` at the top of every file.
-
-**Agent configs are data-driven.**
-All 75 agents are defined as `AgentConfig` entries in `cli/src/openforge/agents/registry.py`. Do not create separate files per agent. Only agents with capabilities beyond `skills` (Claude Code, Cursor) get adapter classes in `agents/adapters/`.
-
-**Telemetry must never block.**
-All telemetry calls are fire-and-forget. Never let a telemetry failure prevent a command from completing.
-
-### Testing and fixing
-
-**Use TDD red/green for all bug fixes.**
-When you find a bug or a test fails:
-1. **Red**: Write a failing test that reproduces the bug.
-2. **Green**: Fix the code to make the test pass.
-3. Verify all existing tests still pass (`uv run pytest`).
-4. Verify pyright still passes (`uv run pyright src/`).
-5. Only then commit the fix.
-
-Never fix a bug without a test that covers it. Never skip the verification step.
-
-**Coverage minimum is 90%.** Enforced by pre-commit hook. Run `cd cli && uv run pytest --cov --cov-fail-under=90` to check locally.
-
-**Run the full test suite before committing.**
-Always run `cd cli && uv run pytest && uv run pyright src/openforge/` before committing any change.
+Component-specific rules are in `forge/CLAUDE.md` and `cli/CLAUDE.md`. The rules below apply project-wide.
 
 ### General rules
 
@@ -219,28 +115,13 @@ When you make significant changes (new tables, new routes, new CLI commands, arc
 
 ---
 
-## Key files to understand
+## Key Files
 
-### The Forge
-- **`forge/src/index.ts`** — Entry point. All middleware and routes registered here.
-- **`forge/src/db/schema.ts`** — Database schema (8 tables). Source of truth for what tables exist.
-- **`forge/src/routes/auth.ts`** — Auth routes (login, signup, magic-link, callback, logout).
-- **`forge/src/routes/pages.ts`** — Catalogue page with search/pagination, plugin detail page.
-- **`forge/src/routes/api.ts`** — JSON APIs (marketplace.json, skills index, telemetry).
-- **`forge/src/middleware/auth.ts`** — Supabase Auth session handling, private/public mode.
-- **`forge/src/views/layout.ts`** — HTML layout wrapper with auth-aware nav.
-- **`forge/src/scripts/seed.ts`** — Seed database by cloning and scanning git repos.
-- **`forge/src/lib/markdown.ts`** — Server-side markdown rendering with sanitization.
-
-### CLI
-- **`cli/src/openforge/cli.py`** — Typer app. All commands registered here.
-- **`cli/src/openforge/agents/base.py`** — AgentConfig dataclass and AgentAdapter protocol.
-- **`cli/src/openforge/agents/registry.py`** — All 75 agent definitions.
-- **`cli/src/openforge/installer.py`** — Core install logic.
+Component-specific key files are listed in `forge/CLAUDE.md` and `cli/CLAUDE.md`.
 
 ---
 
-## Environment setup
+## Environment Setup
 
 ### MCP servers
 
@@ -249,31 +130,7 @@ The project includes a `.mcp.json` that configures MCP servers for all contribut
 - **Supabase** — database management, docs. Authenticates via OAuth on first use.
 - **Context7** — up-to-date library documentation.
 
-### The Forge (local dev)
-
-1. Install Supabase CLI: `brew install supabase/tap/supabase`
-2. `cd forge && bun install`
-3. `supabase start` (requires Docker — starts local Postgres, Auth, Studio)
-4. Copy `forge/.env.example` to `forge/.env` — fill in values from `supabase status`
-5. `bun run db:migrate`
-6. `bun run seed -- --repo https://github.com/anthropics/claude-code --name anthropic`
-7. `bun run dev` — app at http://localhost:3000, Studio at http://127.0.0.1:54323
-
-### The Forge (cloud Supabase)
-
-1. Create a Supabase project and copy credentials to `forge/.env`:
-   - `DATABASE_URL` — Postgres connection string
-   - `SUPABASE_URL` — Project URL
-   - `SUPABASE_ANON_KEY` — Anonymous key
-   - `SUPABASE_SERVICE_ROLE_KEY` — Service role key
-2. `cd forge && bun install`
-3. `bun run db:migrate`
-4. `bun run dev`
-
-### CLI
-
-1. `cd cli && uv sync`
-2. `uv run openforge --help`
+Component-specific environment setup is in `forge/CLAUDE.md` and `cli/CLAUDE.md`.
 
 ---
 
