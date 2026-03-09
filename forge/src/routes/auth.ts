@@ -304,7 +304,14 @@ authRoutes.post("/auth/magic-link", async (c) => {
     );
   }
 
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  // Build the callback URL from the current request origin
+  const url = new URL(c.req.url);
+  const emailRedirectTo = `${url.origin}/auth/callback`;
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo },
+  });
 
   if (error) {
     const msg = encodeURIComponent(error.message);
@@ -319,6 +326,21 @@ authRoutes.post("/auth/magic-link", async (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.get("/auth/callback", async (c) => {
+  // PKCE flow: Supabase redirects with ?code=... query parameter
+  const code = c.req.query("code");
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !data.session) {
+      const msg = encodeURIComponent(
+        error?.message ?? "Could not exchange auth code",
+      );
+      return c.redirect(`/auth/login?error=${msg}`);
+    }
+    setAuthCookies(c, data.session);
+    return c.redirect("/");
+  }
+
+  // Legacy implicit flow: token_hash + type params
   const tokenHash = c.req.query("token_hash");
   const type = c.req.query("type");
 

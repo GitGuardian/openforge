@@ -19,6 +19,11 @@ let mockVerifyResult: { data: { session: unknown }; error: unknown } = {
   data: { session: null },
   error: null,
 };
+let mockExchangeResult: { data: { session: unknown }; error: unknown } = {
+  data: { session: null },
+  error: null,
+};
+let lastOtpOptions: Record<string, unknown> | null = null;
 let mockAllowedDomains: Array<{ domain: string }> = [];
 
 // ---------------------------------------------------------------------------
@@ -30,8 +35,12 @@ mock.module("../../src/lib/supabase", () => ({
     auth: {
       signInWithPassword: async () => mockSignInResult,
       signUp: async () => mockSignUpResult,
-      signInWithOtp: async () => mockOtpResult,
+      signInWithOtp: async (opts: Record<string, unknown>) => {
+        lastOtpOptions = opts;
+        return mockOtpResult;
+      },
       verifyOtp: async () => mockVerifyResult,
+      exchangeCodeForSession: async () => mockExchangeResult,
       getUser: async () => ({ data: { user: null }, error: null }),
     },
   },
@@ -445,6 +454,94 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("Location")).toBe("/");
     const cookies = res.headers.getAll("Set-Cookie");
     expect(cookies.some((c: string) => c.includes("sb-access-token"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: GET /auth/callback — PKCE code exchange
+// ---------------------------------------------------------------------------
+
+describe("GET /auth/callback — PKCE code exchange", () => {
+  beforeEach(() => {
+    mockExchangeResult = { data: { session: null }, error: null };
+  });
+
+  test("exchanges auth code for session and sets cookies", async () => {
+    mockExchangeResult = {
+      data: {
+        session: {
+          access_token: "pkce-access",
+          refresh_token: "pkce-refresh",
+        },
+      },
+      error: null,
+    };
+    const app = createAuthApp();
+    const res = await app.request("/auth/callback?code=test-auth-code", {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe("/");
+    const cookies = res.headers.getAll("Set-Cookie");
+    expect(cookies.some((c: string) => c.includes("sb-access-token"))).toBe(true);
+    expect(cookies.some((c: string) => c.includes("pkce-access"))).toBe(true);
+  });
+
+  test("redirects to error on code exchange failure", async () => {
+    mockExchangeResult = {
+      data: { session: null },
+      error: { message: "Code expired" },
+    };
+    const app = createAuthApp();
+    const res = await app.request("/auth/callback?code=expired-code", {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("Code%20expired");
+  });
+
+  test("prefers code param over token_hash param", async () => {
+    mockExchangeResult = {
+      data: {
+        session: {
+          access_token: "pkce-access",
+          refresh_token: "pkce-refresh",
+        },
+      },
+      error: null,
+    };
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/callback?code=test-code&token_hash=abc&type=magiclink",
+      { redirect: "manual" },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe("/");
+    const cookies = res.headers.getAll("Set-Cookie");
+    expect(cookies.some((c: string) => c.includes("pkce-access"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: signInWithOtp includes emailRedirectTo
+// ---------------------------------------------------------------------------
+
+describe("POST /auth/magic-link — emailRedirectTo", () => {
+  beforeEach(() => {
+    mockOtpResult = { error: null };
+    lastOtpOptions = null;
+  });
+
+  test("passes emailRedirectTo to signInWithOtp", async () => {
+    const app = createAuthApp();
+    await app.request("http://localhost:3000/auth/magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com",
+      redirect: "manual",
+    });
+    expect(lastOtpOptions).not.toBeNull();
+    expect((lastOtpOptions as any).options?.emailRedirectTo).toContain("/auth/callback");
   });
 });
 
