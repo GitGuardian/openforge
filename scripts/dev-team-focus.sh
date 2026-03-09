@@ -71,15 +71,6 @@ for name in LEAD CLI FORGE; do
     fi
 done
 
-# --- Get pane indices ---
-pane_index() {
-    tmux display-message -t "$1" -p '#{pane_index}'
-}
-
-idx_lead=$(pane_index "$LEAD")
-idx_cli=$(pane_index "$CLI")
-idx_forge=$(pane_index "$FORGE")
-
 # --- Compute tmux layout checksum ---
 layout_checksum() {
     python3 -c "
@@ -92,7 +83,60 @@ print(f'{csum & 0xffff:04x},{layout}')
 "
 }
 
-# --- Map agent name to pane ID and index ---
+# --- Apply a layout using the CURRENT pane order ---
+apply_layout() {
+    local layout_str="$1"
+    local result
+    result=$(layout_checksum "$layout_str")
+    tmux select-layout -t "$WINDOW" "$result"
+}
+
+# --- Get the ordered list of pane IDs as tmux sees them ---
+get_pane_order() {
+    tmux list-panes -t "$WINDOW" -F '#{pane_id}'
+}
+
+# --- Build layout string using current pane order ---
+build_layout_ids() {
+    local panes
+    panes=($(get_pane_order))
+    echo "${panes[0]#%} ${panes[1]#%} ${panes[2]#%}"
+}
+
+# --- Restore canonical order: lead, cli, forge ---
+restore_canonical_order() {
+    local canonical=("$LEAD" "$CLI" "$FORGE")
+    local panes
+    panes=($(get_pane_order))
+
+    for i in 0 1 2; do
+        if [ "${panes[$i]}" != "${canonical[$i]}" ]; then
+            for j in $(seq $((i+1)) 2); do
+                if [ "${panes[$j]}" = "${canonical[$i]}" ]; then
+                    tmux swap-pane -d -s "${panes[$j]}" -t "${panes[$i]}"
+                    local tmp="${panes[$i]}"
+                    panes[$i]="${panes[$j]}"
+                    panes[$j]="$tmp"
+                    break
+                fi
+            done
+        fi
+    done
+}
+
+# --- Swap focused agent into the first agent slot (position after lead) ---
+swap_to_front() {
+    local target_id="$1"
+    local panes
+    panes=($(get_pane_order))
+    local first_agent="${panes[1]}"
+
+    if [ "$target_id" != "$first_agent" ]; then
+        tmux swap-pane -d -s "$target_id" -t "$first_agent"
+    fi
+}
+
+# --- Map agent name ---
 agent_name="${1:-}"
 
 if [ -z "$agent_name" ]; then
@@ -101,9 +145,9 @@ if [ -z "$agent_name" ]; then
 fi
 
 case "$agent_name" in
-    lead|team-lead)  FOCUS_ID="$LEAD";  FOCUS_IDX="$idx_lead" ;;
-    cli|cli-dev)     FOCUS_ID="$CLI";   FOCUS_IDX="$idx_cli" ;;
-    forge|forge-dev) FOCUS_ID="$FORGE"; FOCUS_IDX="$idx_forge" ;;
+    lead|team-lead)  FOCUS_ID="$LEAD" ;;
+    cli|cli-dev)     FOCUS_ID="$CLI" ;;
+    forge|forge-dev) FOCUS_ID="$FORGE" ;;
     reset)           FOCUS_ID="" ;;
     *)
         echo "Unknown agent: $agent_name"
@@ -116,45 +160,52 @@ esac
 W=$WIN_WIDTH
 H=$WIN_HEIGHT
 
-if [ "$agent_name" = "reset" ]; then
-    # --- Reset to default layout ---
-    # Lead: 40%, right column: 60% split vertically
-    lead_w=$((W * 40 / 100))
-    right_w=$((W - lead_w - 1))  # -1 for border
-    top_h=$((H / 2))
-    bot_h=$((H - top_h - 1))  # -1 for border
+if [ "$agent_name" = "reset" ] || [ "$agent_name" = "lead" ] || [ "$agent_name" = "team-lead" ]; then
+    # --- Reset/Lead: restore canonical order, then apply layout ---
+    restore_canonical_order
+    local_ids=($(build_layout_ids))
+    id0=${local_ids[0]}; id1=${local_ids[1]}; id2=${local_ids[2]}
 
+    if [ "$agent_name" = "reset" ]; then
+        # Lead: 40%, right column: 60% split vertically
+        lead_w=$((W * 40 / 100))
+    else
+        # Lead focused: 55%, right column: 45%
+        lead_w=$((W * 55 / 100))
+    fi
+
+    right_w=$((W - lead_w - 1))
+    top_h=$((H / 2))
+    bot_h=$((H - top_h - 1))
     right_x=$((lead_w + 1))
     bot_y=$((top_h + 1))
 
-    layout="${W}x${H},0,0{${lead_w}x${H},0,0,${idx_lead},${right_w}x${H},${right_x},0[${right_w}x${top_h},${right_x},0,${idx_cli},${right_w}x${bot_h},${right_x},${bot_y},${idx_forge}]}"
-    result=$(layout_checksum "$layout")
-    tmux select-layout -t "$WINDOW" "$result"
-    echo "Reset to default layout (${W}x${H})."
+    layout="${W}x${H},0,0{${lead_w}x${H},0,0,${id0},${right_w}x${H},${right_x},0[${right_w}x${top_h},${right_x},0,${id1},${right_w}x${bot_h},${right_x},${bot_y},${id2}]}"
+    apply_layout "$layout"
+    tmux select-pane -t "$LEAD"
+    if [ "$agent_name" = "reset" ]; then
+        echo "Reset to default layout (${W}x${H})."
+    else
+        echo "Focused on team-lead (${W}x${H}). Lead: 55%, agents: 45%."
+    fi
 else
     # --- Focus layout: 3-column ---
-    # Focused: 50%, others: 25% each
+    # Swap the focused agent into the first agent slot, then apply layout
+    swap_to_front "$FOCUS_ID"
+
+    local_ids=($(build_layout_ids))
+    id0=${local_ids[0]}; id1=${local_ids[1]}; id2=${local_ids[2]}
+    # id0=lead, id1=focused agent (swapped to front), id2=other
+
+    lead_w=$((W * 25 / 100))
     focus_w=$((W / 2))
-    side_w=$(((W - focus_w - 2) / 2))  # -2 for two borders
-    side2_w=$((W - focus_w - side_w - 2))
+    side_w=$((W - lead_w - focus_w - 2))
 
-    side1_x=0
-    focus_x=$((side_w + 1))
-    side2_x=$((focus_x + focus_w + 1))
+    focus_x=$((lead_w + 1))
+    side_x=$((focus_x + focus_w + 1))
 
-    # Collect the 2 non-focused agent indices
-    others=()
-    for id_var in idx_lead idx_cli idx_forge; do
-        idx="${!id_var}"
-        if [ "$idx" != "$FOCUS_IDX" ]; then
-            others+=("$idx")
-        fi
-    done
-
-    layout="${W}x${H},0,0{${side_w}x${H},${side1_x},0,${others[0]},${focus_w}x${H},${focus_x},0,${FOCUS_IDX},${side2_w}x${H},${side2_x},0,${others[1]}}"
-    result=$(layout_checksum "$layout")
-    tmux select-layout -t "$WINDOW" "$result"
-    # Also select the focused pane so cursor is there
+    layout="${W}x${H},0,0{${lead_w}x${H},0,0,${id0},${focus_w}x${H},${focus_x},0,${id1},${side_w}x${H},${side_x},0,${id2}}"
+    apply_layout "$layout"
     tmux select-pane -t "$FOCUS_ID"
     echo "Focused on $agent_name (${W}x${H})."
 fi

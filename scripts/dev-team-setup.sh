@@ -8,8 +8,9 @@
 # It discovers panes, sets descriptive pane-border-format on each,
 # and applies the default layout.
 #
-# Discovery: The lead pane is the active pane (running this script).
-# The other two panes are agents in spawn order: cli-dev (first), forge-dev (second).
+# Discovery: The lead pane is $TMUX_PANE (running this script).
+# Agent pane IDs are read from the team config file
+# (~/.claude/teams/openforge-dev/config.json) — spawn order ≠ pane order.
 #
 # Default layout:
 # ┌───────────────┬──────────┐
@@ -44,23 +45,28 @@ WINDOW=$(tmux display-message -t "$LEAD" -p '#{session_name}:#{window_index}')
 W=$(tmux display-message -t "$WINDOW" -p '#{window_width}')
 H=$(tmux display-message -t "$WINDOW" -p '#{window_height}')
 
-# The other panes are agents, ordered by pane index (spawn order).
-# cli-dev was spawned first, forge-dev second.
-AGENTS=()
-for pane_id in $(tmux list-panes -t "$WINDOW" -F '#{pane_id}'); do
-    if [ "$pane_id" != "$LEAD" ]; then
-        AGENTS+=("$pane_id")
-    fi
-done
-
-if [ "${#AGENTS[@]}" -lt 2 ]; then
-    echo "ERROR: Expected 2 agent panes, found ${#AGENTS[@]}." >&2
-    echo "Make sure cli-dev and forge-dev are spawned before running this script." >&2
+# Read agent→pane mapping from team config (spawn order ≠ pane order).
+TEAM_CONFIG="$HOME/.claude/teams/openforge-dev/config.json"
+if [ ! -f "$TEAM_CONFIG" ]; then
+    echo "ERROR: Team config not found at $TEAM_CONFIG." >&2
     exit 1
 fi
 
-CLI="${AGENTS[0]}"
-FORGE="${AGENTS[1]}"
+eval "$(python3 - "$TEAM_CONFIG" <<'PYEOF'
+import json, sys
+members = {m['name']: m['tmuxPaneId'] for m in json.load(open(sys.argv[1]))['members']}
+mapping = {'cli-dev': 'CLI', 'forge-dev': 'FORGE'}
+missing = []
+for agent, var in mapping.items():
+    pane = members.get(agent, '')
+    if not pane:
+        missing.append(agent)
+    print(f'{var}={pane}')
+if missing:
+    print(f'echo "ERROR: Missing pane IDs for: {", ".join(missing)}" >&2; exit 1', file=sys.stderr)
+    sys.exit(1)
+PYEOF
+)"
 
 echo "Discovered panes: lead=$LEAD cli=$CLI forge=$FORGE"
 
@@ -72,10 +78,12 @@ tmux set-option -p -t "$FORGE" pane-border-format '#{?pane_active,#[reverse],}#{
 
 echo "Pane titles set."
 
-# --- Get pane indices for layout ---
-idx_lead=$(tmux display-message -t "$LEAD" -p '#{pane_index}')
-idx_cli=$(tmux display-message -t "$CLI" -p '#{pane_index}')
-idx_forge=$(tmux display-message -t "$FORGE" -p '#{pane_index}')
+# --- Get pane IDs for layout ---
+# tmux layout strings use pane IDs (the numeric part of %NNN), NOT pane indices.
+# Pane IDs are stable; indices can shift when layouts are reapplied.
+idx_lead="${LEAD#%}"
+idx_cli="${CLI#%}"
+idx_forge="${FORGE#%}"
 
 # --- Compute layout checksum ---
 layout_checksum() {
