@@ -79,6 +79,7 @@ mock.module("../../src/lib/indexer", () => ({
       errors: [],
     });
   },
+  indexSubmission: () => Promise.resolve(),
 }));
 
 // Import AFTER mocking

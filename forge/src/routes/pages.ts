@@ -4,8 +4,12 @@ import { eq, ilike, or, and, desc, sql, count } from "drizzle-orm";
 import { layout } from "../views/layout";
 import { voteWidget } from "../views/components/vote-widget";
 import { db } from "../db";
-import { plugins, skills, votes, comments, users } from "../db/schema";
+import { plugins, skills, votes, comments, users, submissions } from "../db/schema";
 import { commentSection } from "../views/components/comment-section";
+import { submitPage } from "../views/submit";
+import { mySubmissionsPage } from "../views/my-submissions";
+import { curatorDashboardPage } from "../views/curator-dashboard";
+import { submissionReviewBanner } from "../views/components/submission-review";
 import type { AppEnv } from "../types";
 
 export const pageRoutes = new Hono<AppEnv>();
@@ -213,6 +217,62 @@ pageRoutes.get("/partials/plugin-list", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /submit — submission form (authenticated)
+// ---------------------------------------------------------------------------
+
+pageRoutes.get("/submit", (c) => {
+  const user = c.get("user");
+  if (!user) return c.redirect("/auth/login");
+  return c.html(layout("Submit a Plugin", submitPage(), user));
+});
+
+// ---------------------------------------------------------------------------
+// GET /my/submissions — User's own submissions
+// ---------------------------------------------------------------------------
+
+pageRoutes.get("/my/submissions", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.redirect("/auth/login");
+
+  const rows = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.userId, user.id));
+
+  return c.html(layout("My Submissions", mySubmissionsPage(rows), user));
+});
+
+// ---------------------------------------------------------------------------
+// GET /curator/submissions — Curator dashboard
+// ---------------------------------------------------------------------------
+
+const VALID_STATUS_FILTERS = ["all", "pending", "approved", "rejected"] as const;
+type StatusFilter = (typeof VALID_STATUS_FILTERS)[number];
+
+pageRoutes.get("/curator/submissions", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.redirect("/auth/login");
+  if (user.role !== "curator" && user.role !== "admin") {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+
+  const statusParam = c.req.query("status") ?? "all";
+  const filter: StatusFilter = VALID_STATUS_FILTERS.includes(statusParam as StatusFilter)
+    ? (statusParam as StatusFilter)
+    : "all";
+
+  const rows =
+    filter === "all"
+      ? await db.select().from(submissions)
+      : await db
+          .select()
+          .from(submissions)
+          .where(eq(submissions.status, filter));
+
+  return c.html(layout("Curator Dashboard", curatorDashboardPage(rows, filter), user));
+});
+
+// ---------------------------------------------------------------------------
 // GET / — Catalogue page (full page with layout)
 // ---------------------------------------------------------------------------
 
@@ -308,6 +368,34 @@ pageRoutes.get("/plugins/:name", async (c) => {
     return c.html(layout("Not Found", content, user), 404);
   }
 
+  // Non-approved plugins are only visible to curators/admins
+  const isCuratorOrAdmin = user?.role === "curator" || user?.role === "admin";
+  if (plugin.status !== "approved" && !isCuratorOrAdmin) {
+    const content = html`
+      <div class="text-center py-16">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Plugin not found</h1>
+        <p class="text-gray-600 mb-4">
+          The plugin <strong>${name}</strong> does not exist.
+        </p>
+        <a href="/" class="text-blue-600 hover:text-blue-800">&larr; Back to catalogue</a>
+      </div>
+    `;
+    return c.html(layout("Not Found", content, user), 404);
+  }
+
+  // Fetch linked submission for pending plugins (curator review banner)
+  let linkedSubmission: { id: string; gitUrl: string; description: string | null } | null = null;
+  if (plugin.status === "pending" && isCuratorOrAdmin) {
+    const [sub] = await db
+      .select()
+      .from(submissions)
+      .where(eq(submissions.pluginId, plugin.id))
+      .limit(1);
+    if (sub) {
+      linkedSubmission = { id: sub.id, gitUrl: sub.gitUrl, description: sub.description };
+    }
+  }
+
   const [pluginSkills, userVoteRows, allComments] = await Promise.all([
     db.select().from(skills).where(eq(skills.pluginId, plugin.id)),
     user
@@ -338,6 +426,8 @@ pageRoutes.get("/plugins/:name", async (c) => {
     <div class="mb-6">
       <a href="/" class="text-blue-600 hover:text-blue-800 text-sm">&larr; Back to catalogue</a>
     </div>
+
+    ${linkedSubmission ? submissionReviewBanner(linkedSubmission) : ""}
 
     <div class="flex items-center gap-3 mb-4">
       ${voteWidget(plugin.name, plugin.voteScore, userVote, true)}

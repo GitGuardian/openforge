@@ -122,6 +122,24 @@ export const comments = pgTable("comments", {
 });
 
 // ---------------------------------------------------------------------------
+// submissions
+// ---------------------------------------------------------------------------
+export const submissions = pgTable("submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pluginId: uuid("plugin_id").references(() => plugins.id),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  gitUrl: text("git_url").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("pending"), // "pending" | "approved" | "rejected"
+  reviewerId: uuid("reviewer_id").references(() => users.id),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+});
+
+// ---------------------------------------------------------------------------
 // install_events
 // ---------------------------------------------------------------------------
 export const installEvents = pgTable("install_events", {

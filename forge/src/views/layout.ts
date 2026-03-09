@@ -4,10 +4,12 @@ import { html } from "hono/html";
 export function layout(
   title: string,
   content: HtmlEscapedString | Promise<HtmlEscapedString>,
-  user?: { email: string } | null,
-  options?: { includeEasyMDE?: boolean }
+  user?: { email: string; role?: string } | null,
+  options?: { includeEasyMDE?: boolean; pendingCount?: number }
 ) {
   const includeEasyMDE = options?.includeEasyMDE ?? false;
+  const pendingCount = options?.pendingCount ?? 0;
+  const isCuratorOrAdmin = user?.role === "curator" || user?.role === "admin";
   return html`<!doctype html>
     <html lang="en">
       <head>
@@ -29,6 +31,31 @@ export function layout(
             <div class="flex items-center gap-4">
               ${user
                 ? html`
+                    <a
+                      href="/submit"
+                      class="text-sm text-gray-600 hover:text-gray-900"
+                    >
+                      Submit
+                    </a>
+                    <a
+                      href="/my/submissions"
+                      class="text-sm text-gray-600 hover:text-gray-900"
+                    >
+                      My Submissions
+                    </a>
+                    ${isCuratorOrAdmin
+                      ? html`
+                          <a
+                            href="/curator/submissions"
+                            class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                          >
+                            Curator
+                            ${pendingCount > 0
+                              ? html`<span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">${pendingCount}</span>`
+                              : ""}
+                          </a>
+                        `
+                      : ""}
                     <span class="text-sm text-gray-600">${user.email}</span>
                     <form method="POST" action="/auth/logout" class="inline">
                       <button

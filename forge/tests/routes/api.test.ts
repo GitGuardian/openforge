@@ -30,6 +30,7 @@ const mockSkillRows = [
     pluginVersion: "2.0.0",
     pluginInstallCount: 100,
     pluginGitSha: "def456",
+    pluginStatus: "approved",
     gitUrl: "https://github.com/acme/skills-repo",
   },
 ];
@@ -47,7 +48,9 @@ mock.module("../../src/db", () => ({
       from: (table: unknown) => ({
         innerJoin: (...args: unknown[]) => ({
           where: () => Promise.resolve(mockPluginRows),
-          leftJoin: () => Promise.resolve(mockSkillRows),
+          leftJoin: () => ({
+            where: () => Promise.resolve(mockSkillRows),
+          }),
         }),
       }),
     }),
@@ -162,6 +165,16 @@ describe("GET /.well-known/skills/index.json", () => {
     const app = createApiApp();
     const res = await app.request("/.well-known/skills/index.json");
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=300");
+  });
+
+  test("only includes skills from approved plugins", async () => {
+    const app = createApiApp();
+    const res = await app.request("/.well-known/skills/index.json");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // All returned skills come from approved plugins (mock only has approved)
+    expect(body.skills).toHaveLength(1);
+    expect(body.skills[0].name).toBe("code-review");
   });
 });
 

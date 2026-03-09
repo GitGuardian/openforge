@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, sql } from "drizzle-orm";
+import { eq, or, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { plugins, skills, registries, installEvents } from "../db/schema";
 import type { AppEnv } from "../types";
@@ -113,7 +113,8 @@ apiRoutes.get("/.well-known/skills/index.json", async (c) => {
     })
     .from(skills)
     .innerJoin(registries, eq(skills.registryId, registries.id))
-    .leftJoin(plugins, eq(skills.pluginId, plugins.id));
+    .leftJoin(plugins, eq(skills.pluginId, plugins.id))
+    .where(or(eq(plugins.status, "approved"), isNull(plugins.id)));
 
   const skillsList = rows.map((row) => ({
     name: row.skillName,

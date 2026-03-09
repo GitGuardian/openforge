@@ -8,7 +8,7 @@ import { join, dirname, relative, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { eq, and, ne, notInArray } from "drizzle-orm";
 import { db } from "../db";
-import { plugins, skills, registries } from "../db/schema";
+import { plugins, skills, registries, submissions } from "../db/schema";
 import { renderMarkdown } from "./markdown";
 
 // ---------------------------------------------------------------------------
@@ -457,4 +457,129 @@ export async function indexRegistry(registryId: string): Promise<IndexResult> {
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Submission indexing — validate and extract plugin from a submitted repo
+// ---------------------------------------------------------------------------
+
+/**
+ * Index a submission: clone the repo, scan for plugins, and either link the
+ * found plugin (with "pending" status) or auto-reject the submission.
+ */
+export async function indexSubmission(submissionId: string): Promise<void> {
+  // 1. Look up the submission
+  const [submission] = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.id, submissionId))
+    .limit(1);
+
+  if (!submission || submission.status !== "pending") return;
+
+  // 2. Create or reuse a registry for this git URL
+  const normalize = (url: string) => url.replace(/\.git$/, "").replace(/\/$/, "");
+  const normalizedUrl = normalize(submission.gitUrl);
+
+  const allRegs = await db.select().from(registries);
+  let registry = allRegs.find((r) => normalize(r.gitUrl) === normalizedUrl);
+
+  if (!registry) {
+    const [newReg] = await db
+      .insert(registries)
+      .values({
+        name: `submission-${submissionId.slice(0, 8)}`,
+        gitUrl: submission.gitUrl,
+        registryType: "github",
+      })
+      .returning();
+    registry = newReg;
+  }
+
+  // 3. Clone the repo
+  let repoDir: string;
+  try {
+    repoDir = await cloneRepo(submission.gitUrl);
+  } catch (err) {
+    await rejectSubmission(submissionId, `Failed to clone repository: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
+  try {
+    const sha = await getHeadSha(repoDir);
+
+    // 4. Scan for plugin.json and marketplace.json
+    const pluginJsonFiles = await findFiles(repoDir, /^plugin\.json$/);
+    const marketplaceFiles = await findFiles(repoDir, /^marketplace\.json$/);
+
+    const pluginDataList: PluginData[] = [];
+    for (const pjPath of pluginJsonFiles) {
+      const data = await parsePlugin(pjPath, repoDir);
+      if (data) pluginDataList.push(data);
+    }
+    for (const mpPath of marketplaceFiles) {
+      const entries = await parseMarketplace(mpPath, repoDir);
+      pluginDataList.push(...entries);
+    }
+
+    if (pluginDataList.length === 0) {
+      await rejectSubmission(submissionId, "No plugin.json or marketplace.json found in repository.");
+      return;
+    }
+
+    // 5. Use the first plugin found and create it with "pending" status
+    const pd = pluginDataList[0];
+    const [pluginRow] = await db
+      .insert(plugins)
+      .values({
+        registryId: registry.id,
+        name: pd.name,
+        version: pd.version,
+        description: pd.description,
+        category: pd.category,
+        tags: pd.tags,
+        readmeHtml: pd.readmeHtml,
+        pluginJson: pd.pluginJson,
+        gitPath: pd.gitPath,
+        gitSha: sha,
+        status: "pending",
+      })
+      .onConflictDoUpdate({
+        target: [plugins.registryId, plugins.name],
+        set: {
+          version: pd.version,
+          description: pd.description,
+          category: pd.category,
+          tags: pd.tags,
+          readmeHtml: pd.readmeHtml,
+          pluginJson: pd.pluginJson,
+          gitPath: pd.gitPath,
+          gitSha: sha,
+          status: "pending",
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    // 6. Link the plugin to the submission
+    await db
+      .update(submissions)
+      .set({ pluginId: pluginRow.id })
+      .where(eq(submissions.id, submissionId));
+  } catch (err) {
+    await rejectSubmission(submissionId, `Indexing failed: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    await rm(repoDir, { recursive: true, force: true });
+  }
+}
+
+async function rejectSubmission(submissionId: string, reason: string): Promise<void> {
+  await db
+    .update(submissions)
+    .set({
+      status: "rejected",
+      reviewNote: reason,
+      reviewedAt: new Date(),
+    })
+    .where(eq(submissions.id, submissionId));
 }

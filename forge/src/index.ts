@@ -10,6 +10,7 @@ import { authRoutes } from "./routes/auth";
 import { voteRoutes } from "./routes/votes";
 import { commentRoutes } from "./routes/comments";
 import { webhookRoutes } from "./routes/webhooks";
+import { submissionRoutes } from "./routes/submissions";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -32,6 +33,7 @@ app.route("/", healthRoutes);
 app.route("/", authRoutes);
 app.route("/", voteRoutes);
 app.route("/", commentRoutes);
+app.route("/", submissionRoutes);
 app.route("/", apiRoutes);
 app.route("/", pageRoutes);
 
