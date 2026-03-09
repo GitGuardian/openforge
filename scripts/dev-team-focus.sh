@@ -29,7 +29,7 @@ WINDOW=""
 for win in $(tmux list-windows -a -F '#{session_name}:#{window_index}'); do
     for pane_id in $(tmux list-panes -t "$win" -F '#{pane_id}' 2>/dev/null); do
         fmt=$(tmux show-options -p -t "$pane_id" -v pane-border-format 2>/dev/null || true)
-        if echo "$fmt" | grep -q '"openforge:team-lead"'; then
+        if echo "$fmt" | grep -q '"openforge:team-lead'; then
             WINDOW="$win"
             break 2
         fi
