@@ -18,16 +18,17 @@ function setAuthCookies(
   c: Context,
   session: { access_token: string; refresh_token: string },
 ): void {
+  const isSecure = c.req.url.startsWith("https");
   setCookie(c, "sb-access-token", session.access_token, {
     httpOnly: true,
-    secure: true,
+    secure: isSecure,
     sameSite: "Lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });
   setCookie(c, "sb-refresh-token", session.refresh_token, {
     httpOnly: true,
-    secure: true,
+    secure: isSecure,
     sameSite: "Lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,

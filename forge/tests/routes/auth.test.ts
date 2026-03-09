@@ -449,6 +449,51 @@ describe("GET /auth/callback", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: Cookie secure flag
+// ---------------------------------------------------------------------------
+
+describe("Auth cookie secure flag", () => {
+  beforeEach(() => {
+    mockSignInResult = {
+      data: {
+        session: { access_token: "test-access", refresh_token: "test-refresh" },
+      },
+      error: null,
+    };
+  });
+
+  test("omits Secure flag for HTTP requests (local dev)", async () => {
+    const app = createAuthApp();
+    const res = await app.request("http://localhost:3000/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=password123",
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    const cookies = res.headers.getAll("Set-Cookie");
+    expect(cookies.length).toBeGreaterThan(0);
+    const hasSecure = cookies.some((c: string) => c.includes("Secure"));
+    expect(hasSecure).toBe(false);
+  });
+
+  test("sets Secure flag for HTTPS requests (production)", async () => {
+    const app = createAuthApp();
+    const res = await app.request("https://forge.example.com/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=password123",
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    const cookies = res.headers.getAll("Set-Cookie");
+    expect(cookies.length).toBeGreaterThan(0);
+    const hasSecure = cookies.some((c: string) => c.includes("Secure"));
+    expect(hasSecure).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: POST /auth/logout
 // ---------------------------------------------------------------------------
 
