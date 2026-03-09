@@ -26,6 +26,8 @@ bun install              # Install dependencies
 supabase start           # Start local Supabase (Postgres, Auth, Studio)
 bun run dev              # Start dev server with hot reload
 bun run start            # Start production server
+bun test                 # Run test suite (target: 90%+ line coverage)
+bun test --coverage      # Run tests with coverage report
 bun run db:generate      # Generate migration from schema changes
 bun run db:migrate       # Apply migrations to database
 bun run db:studio        # Open Drizzle Studio (database GUI)
@@ -73,6 +75,11 @@ forge/
         comment-section.ts    # Threaded comment section with EasyMDE
     scripts/
       seed.ts                 # Seed database from git repos
+  tests/                      # Test suite (bun test, 90%+ coverage target)
+    setup.ts                  # Shared test helpers (mockUser, createTestApp)
+    routes/                   # Route tests (one file per route module)
+    middleware/               # Middleware tests
+    lib/                      # Lib module tests
   drizzle/                    # Generated SQL migrations
   supabase/                   # Local Supabase config (supabase init)
   public/                     # Static files served at /public/*
