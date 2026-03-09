@@ -62,7 +62,7 @@ mock.module("../../src/db", () => {
     // Regular select (plugins, skills, comments, etc.)
     return {
       from: () => ({
-        // Plugin detail: .where().limit()
+        // Plugin detail: .where().limit() or skills: .where() (awaited directly)
         where: (cond: unknown) => ({
           limit: (n: number) => Promise.resolve(mockDetailPlugin ? [mockDetailPlugin] : []),
           orderBy: (sort: unknown) => ({
@@ -70,6 +70,9 @@ mock.module("../../src/db", () => {
               offset: (o: number) => Promise.resolve(mockPluginRows),
             }),
           }),
+          // Thenable — allows `await db.select().from(skills).where(...)` to resolve directly
+          then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+            Promise.resolve(mockSkills).then(resolve, reject),
         }),
         // Catalogue with user votes: .leftJoin().where().orderBy().limit().offset()
         leftJoin: (table: unknown, cond: unknown) => ({
@@ -321,6 +324,29 @@ describe("GET /plugins/:name", () => {
     const res = await app.request("/plugins/test-plugin");
     const html = await res.text();
     expect(html).toContain("Hello");
+  });
+
+  test("renders skills section when skills exist", async () => {
+    mockSkills = [
+      { id: "skill-1", name: "my-cool-skill", description: "Does cool things" },
+      { id: "skill-2", name: "another-skill", description: null },
+    ];
+    const app = createPageApp();
+    const res = await app.request("/plugins/test-plugin");
+    const html = await res.text();
+    expect(html).toContain("Skills");
+    expect(html).toContain("my-cool-skill");
+    expect(html).toContain("Does cool things");
+    expect(html).toContain("another-skill");
+  });
+
+  test("hides skills section when no skills", async () => {
+    mockSkills = [];
+    const app = createPageApp();
+    const res = await app.request("/plugins/test-plugin");
+    const html = await res.text();
+    // "Skills" heading should not appear when there are no skills
+    expect(html).not.toContain(">Skills<");
   });
 
   test("renders comment section", async () => {
