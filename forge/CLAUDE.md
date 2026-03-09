@@ -26,8 +26,9 @@ bun install              # Install dependencies
 supabase start           # Start local Supabase (Postgres, Auth, Studio)
 bun run dev              # Start dev server with hot reload
 bun run start            # Start production server
-bun test                 # Run test suite (target: 90%+ line coverage)
+bun test                 # Run test suite
 bun test --coverage      # Run tests with coverage report
+bash scripts/check-coverage.sh 90  # Run tests and fail if coverage < 90%
 bun run db:generate      # Generate migration from schema changes
 bun run db:migrate       # Apply migrations to database
 bun run db:studio        # Open Drizzle Studio (database GUI)
@@ -111,6 +112,8 @@ After creating a new route file, import it and register with `app.route("/", you
 
 **User identity comes from Supabase Auth middleware.**
 Access the current user via `c.get("user")` in any route. The auth middleware in `src/middleware/auth.ts` handles session validation against Supabase Auth. RLS enforces permissions at the database level.
+
+**Coverage minimum is 90%.** Enforced by pre-commit hook (`scripts/check-coverage.sh`). Run `bash scripts/check-coverage.sh 90` to check locally. Never commit changes that drop coverage below 90%.
 
 ---
 

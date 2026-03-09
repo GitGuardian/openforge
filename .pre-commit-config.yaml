@@ -33,6 +33,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: tests-forge
+        name: bun test (forge)
+        entry: bash -c 'cd forge && bash scripts/check-coverage.sh 90'
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: typecheck-forge
         name: typecheck (forge)
         entry: bash -c 'cd forge && bun run typecheck'

@@ -2,6 +2,8 @@
 
 Launch the 3-agent development team: team-lead (you), cli-dev, and forge-dev.
 
+**The dev team is persistent.** Once booted, the team stays running indefinitely — across tasks, idle periods, and conversation compactions. Never shut down the team or any agent unless the user explicitly asks (e.g., `/dev-team-shutdown`). Do not auto-shutdown after completing work.
+
 ## Instructions
 
 ### 1. Clean up any existing team

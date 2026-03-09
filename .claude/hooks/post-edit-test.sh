@@ -1,34 +1,103 @@
 #!/bin/bash
 # PostToolUse hook: run related test file after editing a source file
-# Maps cli/src/openforge/<module>.py -> cli/tests/test_<module>.py
-# Maps cli/tests/test_*.py -> runs that test file directly
+# Output is minimal on success (just pass/fail count), verbose on failure.
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
-# Only process Python files
-if [[ -z "$FILE_PATH" || "$FILE_PATH" != *.py ]]; then
+if [[ -z "$FILE_PATH" ]]; then
   exit 0
 fi
 
 cd "$(echo "$INPUT" | jq -r '.cwd')"
-BASENAME=$(basename "$FILE_PATH" .py)
 
-# If editing a test file, run it directly
-if [[ "$BASENAME" == test_* ]]; then
-  uv run pytest "$FILE_PATH" -x -q 2>&1
+# Helper: run bun test and show only summary (or full output on failure)
+run_bun_test() {
+  local OUTPUT
+  OUTPUT=$(cd forge && bun test "$@" 2>&1)
+  local RC=$?
+  if [ $RC -ne 0 ]; then
+    echo "$OUTPUT"
+  else
+    # Show only the summary line (e.g. "14 pass, 0 fail")
+    echo "$OUTPUT" | grep -E '^\s*\d+ pass'
+  fi
+  return $RC
+}
+
+# Helper: run pytest and show only summary (or full output on failure)
+run_pytest() {
+  local OUTPUT
+  OUTPUT=$(uv run pytest "$@" 2>&1)
+  local RC=$?
+  if [ $RC -ne 0 ]; then
+    echo "$OUTPUT"
+  else
+    # Show only the final summary line
+    echo "$OUTPUT" | tail -1
+  fi
+  return $RC
+}
+
+# -------------------------------------------------------------------------
+# TypeScript files (Forge)
+# -------------------------------------------------------------------------
+
+if [[ "$FILE_PATH" == *.ts && "$FILE_PATH" == *forge/* ]]; then
+  BASENAME=$(basename "$FILE_PATH" .ts)
+
+  if [[ "$FILE_PATH" == *.test.ts ]]; then
+    run_bun_test "$FILE_PATH"
+    exit $?
+  fi
+
+  if [[ "$BASENAME" == index || "$BASENAME" == types || "$BASENAME" == schema ]]; then
+    exit 0
+  fi
+
+  TEST_FILE=""
+  if [[ "$FILE_PATH" == *forge/src/routes/* ]]; then
+    TEST_FILE="forge/tests/routes/${BASENAME}.test.ts"
+  elif [[ "$FILE_PATH" == *forge/src/middleware/* ]]; then
+    if [[ "$BASENAME" == "auth" ]]; then
+      run_bun_test tests/middleware/auth.test.ts tests/middleware/auth-middleware.test.ts
+      exit $?
+    fi
+    TEST_FILE="forge/tests/middleware/${BASENAME}.test.ts"
+  elif [[ "$FILE_PATH" == *forge/src/lib/* ]]; then
+    TEST_FILE="forge/tests/lib/${BASENAME}.test.ts"
+  elif [[ "$FILE_PATH" == *forge/src/views/* ]]; then
+    exit 0
+  fi
+
+  if [[ -n "$TEST_FILE" && -f "$TEST_FILE" ]]; then
+    run_bun_test "$TEST_FILE"
+    exit $?
+  fi
+
   exit 0
 fi
 
-# If editing a source file under cli/src/openforge/, find matching test
+# -------------------------------------------------------------------------
+# Python files (CLI)
+# -------------------------------------------------------------------------
+
+if [[ "$FILE_PATH" != *.py ]]; then
+  exit 0
+fi
+
+BASENAME=$(basename "$FILE_PATH" .py)
+
+if [[ "$BASENAME" == test_* ]]; then
+  run_pytest "$FILE_PATH" -x -q
+  exit $?
+fi
+
 if [[ "$FILE_PATH" == *cli/src/openforge/* ]]; then
-  # Skip __init__, conftest, __main__
   if [[ "$BASENAME" == __* || "$BASENAME" == conftest ]]; then
     exit 0
   fi
 
-  # Handle submodule paths: agents/registry.py -> test_agents.py
-  # Handle adapters: agents/adapters/claude.py -> test_adapters.py
   if [[ "$FILE_PATH" == *agents/adapters/claude* ]]; then
     TEST_FILE="cli/tests/test_adapters.py"
   elif [[ "$FILE_PATH" == *agents/adapters/cursor* ]]; then
@@ -40,7 +109,6 @@ if [[ "$FILE_PATH" == *cli/src/openforge/* ]]; then
   elif [[ "$FILE_PATH" == *providers/source_parser* ]]; then
     TEST_FILE="cli/tests/test_source_parser.py"
   elif [[ "$FILE_PATH" == *providers/github* ]]; then
-    # No dedicated test file yet, skip
     exit 0
   elif [[ -f "cli/tests/test_${BASENAME}.py" ]]; then
     TEST_FILE="cli/tests/test_${BASENAME}.py"
@@ -49,7 +117,7 @@ if [[ "$FILE_PATH" == *cli/src/openforge/* ]]; then
   fi
 
   if [[ -f "$TEST_FILE" ]]; then
-    uv run pytest "$TEST_FILE" -x -q 2>&1
+    run_pytest "$TEST_FILE" -x -q
   fi
 fi
 
