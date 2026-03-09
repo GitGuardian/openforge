@@ -119,8 +119,28 @@ submissionRoutes.post("/api/submissions/:id/review", async (c) => {
     return c.json({ error: "Forbidden" }, 403);
   }
 
-  const body = await c.req.json().catch(() => null);
-  if (!body || !["approve", "reject"].includes(body.action)) {
+  // Parse body — support both JSON (API) and form data (HTMX)
+  let action: string | undefined;
+  let note: string | null = null;
+
+  const contentType = c.req.header("Content-Type") || "";
+  if (contentType.includes("application/json")) {
+    const body = await c.req.json().catch(() => null);
+    action = body?.action;
+    note = typeof body?.note === "string" ? body.note : null;
+  } else {
+    const formData = await c.req.parseBody();
+    action = typeof formData.action === "string" ? formData.action : undefined;
+    note = typeof formData.note === "string" ? formData.note : null;
+  }
+
+  // HTMX hx-prompt sends the user's response as HX-Prompt header
+  const hxPrompt = c.req.header("HX-Prompt");
+  if (hxPrompt && !note) {
+    note = hxPrompt;
+  }
+
+  if (!action || !["approve", "reject"].includes(action)) {
     return c.json({ error: "action must be 'approve' or 'reject'" }, 400);
   }
 
@@ -135,14 +155,14 @@ submissionRoutes.post("/api/submissions/:id/review", async (c) => {
     return c.json({ error: "Submission already reviewed" }, 409);
   }
 
-  const newStatus = body.action === "approve" ? "approved" : "rejected";
+  const newStatus = action === "approve" ? "approved" : "rejected";
 
   const [updated] = await db
     .update(submissions)
     .set({
       status: newStatus,
       reviewerId: user.id,
-      reviewNote: typeof body.note === "string" ? body.note : null,
+      reviewNote: note,
       reviewedAt: new Date(),
     })
     .where(eq(submissions.id, submissionId))

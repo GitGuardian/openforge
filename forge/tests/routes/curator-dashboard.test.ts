@@ -183,6 +183,47 @@ describe("GET /curator/submissions", () => {
     expect(html).toContain("No submissions");
   });
 
+  test("shows approve/reject buttons for pending submissions", async () => {
+    selectResults.push([
+      {
+        id: "sub-001",
+        gitUrl: "https://github.com/owner/pending-repo",
+        status: "pending",
+        createdAt: new Date("2026-01-15"),
+        reviewNote: null,
+        userId: "user-001",
+        pluginId: null,
+      },
+    ]);
+    const app = createApp(testCurator);
+    const res = await app.request("/curator/submissions?status=pending");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Approve");
+    expect(html).toContain("Reject");
+    expect(html).toContain("hx-post");
+    expect(html).toContain("/api/submissions/sub-001/review");
+  });
+
+  test("does not show action buttons for approved submissions", async () => {
+    selectResults.push([
+      {
+        id: "sub-002",
+        gitUrl: "https://github.com/owner/approved-repo",
+        status: "approved",
+        createdAt: new Date("2026-01-10"),
+        reviewNote: null,
+        userId: "user-001",
+        pluginId: null,
+      },
+    ]);
+    const app = createApp(testCurator);
+    const res = await app.request("/curator/submissions?status=approved");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).not.toContain("hx-post");
+  });
+
   test("admin can access curator dashboard", async () => {
     const testAdmin: AppUser = {
       id: "admin-001",

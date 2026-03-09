@@ -471,6 +471,45 @@ describe("POST /api/submissions/:id/review", () => {
     expect(res.status).toBe(200);
   });
 
+  test("approves via form-encoded body (HTMX hx-vals)", async () => {
+    selectResults.push([{ id: "sub-001", status: "pending", pluginId: null }]);
+    updateResults.push([{ id: "sub-001", status: "approved" }]);
+
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/sub-001/review", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "HX-Request": "true",
+      },
+      body: "action=approve",
+    });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("approved");
+  });
+
+  test("rejects via form-encoded body with HX-Prompt as note", async () => {
+    selectResults.push([{ id: "sub-001", status: "pending", pluginId: null }]);
+    updateResults.push([{ id: "sub-001", status: "rejected" }]);
+
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/sub-001/review", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "HX-Request": "true",
+        "HX-Prompt": "Missing README",
+      },
+      body: "action=reject",
+    });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("rejected");
+    expect(lastUpdateSetValues).not.toBeNull();
+    expect(lastUpdateSetValues!.reviewNote).toBe("Missing README");
+  });
+
   test("returns HTML partial when HX-Request header is present (approve)", async () => {
     selectResults.push([{ id: "sub-001", status: "pending", pluginId: null }]);
     updateResults.push([{ id: "sub-001", status: "approved" }]);

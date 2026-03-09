@@ -57,7 +57,8 @@ export function curatorDashboardPage(
                   <th class="py-2 pr-4">Repository</th>
                   <th class="py-2 pr-4">Status</th>
                   <th class="py-2 pr-4">Submitted</th>
-                  <th class="py-2">Note</th>
+                  <th class="py-2 pr-4">Note</th>
+                  <th class="py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -71,7 +72,27 @@ export function curatorDashboardPage(
                       <td class="py-3 pr-4 text-gray-500">
                         ${new Date(s.createdAt).toLocaleDateString()}
                       </td>
-                      <td class="py-3 text-gray-500">${s.reviewNote ?? ""}</td>
+                      <td class="py-3 pr-4 text-gray-500">${s.reviewNote ?? ""}</td>
+                      <td class="py-3">${s.status === "pending"
+                        ? html`
+                          <div class="flex gap-2" id="review-${s.id}">
+                            <button
+                              hx-post="/api/submissions/${s.id}/review"
+                              hx-vals='{"action":"approve"}'
+                              hx-target="#review-${s.id}"
+                              hx-swap="innerHTML"
+                              class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                            >Approve</button>
+                            <button
+                              hx-post="/api/submissions/${s.id}/review"
+                              hx-vals='{"action":"reject"}'
+                              hx-target="#review-${s.id}"
+                              hx-swap="innerHTML"
+                              hx-prompt="Rejection reason (optional):"
+                              class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                            >Reject</button>
+                          </div>`
+                        : html``}</td>
                     </tr>
                   `
                 )}
