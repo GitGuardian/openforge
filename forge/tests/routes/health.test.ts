@@ -8,7 +8,7 @@ describe("GET /health", () => {
 
     const body = await res.json();
     expect(body.status).toBe("ok");
-    expect(body.timestamp).toBeDefined();
+    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   });
 
   test("timestamp is a valid ISO string", async () => {
