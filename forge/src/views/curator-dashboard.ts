@@ -33,6 +33,55 @@ function filterTab(label: string, value: StatusFilter, active: StatusFilter) {
   >${label}</a>`;
 }
 
+function actionButtons(s: SubmissionRow) {
+  if (s.status === "pending") {
+    return html`
+      <div class="flex gap-2" id="review-${s.id}">
+        <button
+          hx-post="/api/submissions/${s.id}/review"
+          hx-vals='{"action":"approve"}'
+          hx-target="#review-${s.id}"
+          hx-swap="innerHTML"
+          class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+        >Approve</button>
+        <button
+          hx-post="/api/submissions/${s.id}/review"
+          hx-vals='{"action":"reject"}'
+          hx-target="#review-${s.id}"
+          hx-swap="innerHTML"
+          hx-prompt="Rejection reason (optional):"
+          class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+        >Reject</button>
+      </div>`;
+  }
+  if (s.status === "approved") {
+    return html`
+      <div class="flex gap-2" id="review-${s.id}">
+        <button
+          hx-post="/api/submissions/${s.id}/review"
+          hx-vals='{"action":"reject"}'
+          hx-target="#review-${s.id}"
+          hx-swap="innerHTML"
+          hx-prompt="Revocation reason (optional):"
+          class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+        >Revoke</button>
+      </div>`;
+  }
+  if (s.status === "rejected") {
+    return html`
+      <div class="flex gap-2" id="review-${s.id}">
+        <button
+          hx-post="/api/submissions/${s.id}/review"
+          hx-vals='{"action":"approve"}'
+          hx-target="#review-${s.id}"
+          hx-swap="innerHTML"
+          class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+        >Approve</button>
+      </div>`;
+  }
+  return html``;
+}
+
 export function curatorDashboardPage(
   submissions: SubmissionRow[],
   activeFilter: StatusFilter = "all",
@@ -73,26 +122,7 @@ export function curatorDashboardPage(
                         ${new Date(s.createdAt).toLocaleDateString()}
                       </td>
                       <td class="py-3 pr-4 text-gray-500">${s.reviewNote ?? ""}</td>
-                      <td class="py-3">${s.status === "pending"
-                        ? html`
-                          <div class="flex gap-2" id="review-${s.id}">
-                            <button
-                              hx-post="/api/submissions/${s.id}/review"
-                              hx-vals='{"action":"approve"}'
-                              hx-target="#review-${s.id}"
-                              hx-swap="innerHTML"
-                              class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                            >Approve</button>
-                            <button
-                              hx-post="/api/submissions/${s.id}/review"
-                              hx-vals='{"action":"reject"}'
-                              hx-target="#review-${s.id}"
-                              hx-swap="innerHTML"
-                              hx-prompt="Rejection reason (optional):"
-                              class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                            >Reject</button>
-                          </div>`
-                        : html``}</td>
+                      <td class="py-3">${actionButtons(s)}</td>
                     </tr>
                   `
                 )}

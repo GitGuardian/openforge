@@ -205,7 +205,7 @@ describe("GET /curator/submissions", () => {
     expect(html).toContain("/api/submissions/sub-001/review");
   });
 
-  test("does not show action buttons for approved submissions", async () => {
+  test("shows Revoke button for approved submissions", async () => {
     selectResults.push([
       {
         id: "sub-002",
@@ -221,7 +221,33 @@ describe("GET /curator/submissions", () => {
     const res = await app.request("/curator/submissions?status=approved");
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).not.toContain("hx-post");
+    expect(html).toContain("Revoke");
+    expect(html).toContain("hx-post");
+    expect(html).toContain("/api/submissions/sub-002/review");
+    expect(html).not.toContain(">Approve</button>");
+  });
+
+  test("shows Approve button for rejected submissions", async () => {
+    selectResults.push([
+      {
+        id: "sub-003",
+        gitUrl: "https://github.com/owner/rejected-repo",
+        status: "rejected",
+        createdAt: new Date("2026-01-12"),
+        reviewNote: "Missing docs",
+        userId: "user-001",
+        pluginId: null,
+      },
+    ]);
+    const app = createApp(testCurator);
+    const res = await app.request("/curator/submissions?status=rejected");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Approve");
+    expect(html).toContain("hx-post");
+    expect(html).toContain("/api/submissions/sub-003/review");
+    expect(html).not.toContain(">Reject</button>");
+    expect(html).not.toContain(">Revoke</button>");
   });
 
   test("admin can access curator dashboard", async () => {

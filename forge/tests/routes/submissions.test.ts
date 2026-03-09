@@ -391,15 +391,36 @@ describe("POST /api/submissions/:id/review", () => {
     expect(res.status).toBe(404);
   });
 
-  test("returns 409 if submission already reviewed", async () => {
-    selectResults.push([{ id: "sub-001", status: "approved", pluginId: null }]);
+  test("curator can re-review an already-approved submission (revoke)", async () => {
+    selectResults.push([{ id: "sub-001", status: "approved", pluginId: "plugin-001" }]);
+    updateResults.push([{ id: "sub-001", status: "rejected" }]);
+    updateResults.push([]); // plugin status update
+
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/sub-001/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reject", note: "Revoked due to policy violation" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("rejected");
+  });
+
+  test("curator can re-review an already-rejected submission (approve)", async () => {
+    selectResults.push([{ id: "sub-001", status: "rejected", pluginId: "plugin-001" }]);
+    updateResults.push([{ id: "sub-001", status: "approved" }]);
+    updateResults.push([]); // plugin status update
+
     const app = createApp(testCurator);
     const res = await app.request("/api/submissions/sub-001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
     });
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("approved");
   });
 
   test("approves a pending submission and returns 200", async () => {
