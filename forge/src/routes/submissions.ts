@@ -19,12 +19,26 @@ submissionRoutes.post("/api/submissions", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
-  const body = await c.req.json().catch(() => null);
-  if (!body || typeof body.gitUrl !== "string" || !body.gitUrl.trim()) {
+  // Parse body — support both JSON (CLI) and form data (HTMX)
+  let gitUrl: string | undefined;
+  let description: string | null = null;
+
+  const contentType = c.req.header("Content-Type") || "";
+  if (contentType.includes("application/json")) {
+    const body = await c.req.json().catch(() => null);
+    gitUrl = body?.gitUrl;
+    description = typeof body?.description === "string" ? body.description : null;
+  } else {
+    const formData = await c.req.parseBody();
+    gitUrl = typeof formData.gitUrl === "string" ? formData.gitUrl : undefined;
+    description = typeof formData.description === "string" ? formData.description : null;
+  }
+
+  if (!gitUrl || !gitUrl.trim()) {
     return c.json({ error: "gitUrl is required" }, 400);
   }
 
-  const gitUrl = body.gitUrl.trim();
+  gitUrl = gitUrl.trim();
   if (!GIT_URL_PATTERN.test(gitUrl)) {
     return c.json(
       { error: "Invalid git URL. Must be a GitHub or GitLab repository URL." },
@@ -52,7 +66,7 @@ submissionRoutes.post("/api/submissions", async (c) => {
     .values({
       userId: user.id,
       gitUrl,
-      description: typeof body.description === "string" ? body.description : null,
+      description,
       status: "pending",
     })
     .returning();

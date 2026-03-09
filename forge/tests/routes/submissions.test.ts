@@ -195,6 +195,18 @@ describe("POST /api/submissions", () => {
     expect(body.gitUrl).toBe("https://github.com/owner/repo");
   });
 
+  test("creates submission from form-encoded body (HTMX)", async () => {
+    const app = createApp(testUser);
+    const res = await app.request("/api/submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "gitUrl=https%3A%2F%2Fgithub.com%2Fowner%2Frepo&description=A+cool+plugin",
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.gitUrl).toBe("https://github.com/owner/repo");
+  });
+
   test("accepts GitLab URLs", async () => {
     const app = createApp(testUser);
     const res = await app.request("/api/submissions", {
