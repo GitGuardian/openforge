@@ -65,3 +65,17 @@ When you make significant changes (new tables, new routes, new CLI commands, arc
 - 75-agent support, data-driven registry, skills.sh compatible
 - Public/private modes via config toggle
 - Config precedence: env > `.openforge.toml` > `~/.config/openforge/config.toml` > defaults
+- Two plugin ingestion paths: **webhook auto-indexing** (trusted, auto-approved) and **community submissions** (untrusted, requires curator review)
+- CLI auth uses Supabase GoTrue REST API directly (no SDK dependency). Token stored at `~/.config/openforge/token.json` with 0o600 permissions
+
+---
+
+## Testing Architecture
+
+Three-tier hybrid testing pyramid for both Forge and CLI:
+
+- **Tier 1 — Unit:** Fast, mocked, in-process. `bun test` (Forge) / `pytest` (CLI)
+- **Tier 2 — Integration:** Real HTTP against local Forge+Supabase via `fetch()` (Forge) / `respx` transport mocking (CLI)
+- **Tier 3 — E2E:** Playwright browser tests via Node.js (Forge) / subprocess smoke tests (CLI)
+
+CI target: <60s total. Playwright runs via `npx` (NOT Bun — incompatible). Setup: `scripts/test-e2e-setup.sh`.

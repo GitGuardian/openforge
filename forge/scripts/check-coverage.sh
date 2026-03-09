@@ -7,7 +7,7 @@
 THRESHOLD="${1:-90}"
 cd "$(dirname "$0")/.." || exit 1
 
-OUTPUT=$(bun test --coverage 2>&1)
+OUTPUT=$(bun test --coverage tests/routes/ tests/middleware/ tests/lib/ 2>&1)
 EXIT_CODE=$?
 
 # If tests failed, show full output

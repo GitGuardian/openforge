@@ -26,8 +26,11 @@ bun install              # Install dependencies
 supabase start           # Start local Supabase (Postgres, Auth, Studio)
 bun run dev              # Start dev server with hot reload
 bun run start            # Start production server
-bun test                 # Run test suite
-bun test --coverage      # Run tests with coverage report
+bun test                 # Run unit tests (mocked, ~10-15s)
+bun test --coverage      # Run unit tests with coverage report
+bun run test:integration # Run integration tests against real Forge+Supabase (~5-10s)
+bun run test:e2e         # Run Playwright E2E tests via Node.js (~7-10s)
+bun run test:all         # Run all tiers (unit + integration + e2e)
 bash scripts/check-coverage.sh 90  # Run tests and fail if coverage < 90%
 bun run db:generate      # Generate migration from schema changes
 bun run db:migrate       # Apply migrations to database
@@ -83,8 +86,16 @@ forge/
     scripts/
       seed.ts                 # Seed database from git repos
       check-coverage.sh       # Coverage threshold check (used by pre-commit hook)
-  tests/                      # Test suite (bun test, 90%+ coverage target)
+  tests/                      # Unit tests (bun test, mocked DB/auth, 90%+ coverage target)
     setup.ts                  # Shared test helpers (mockUser, createTestApp)
+    routes/                   # Route tests (one file per route module)
+    middleware/               # Middleware tests
+    lib/                      # Lib module tests
+    integration/              # Integration tests (real Forge+Supabase via fetch())
+      helpers.ts              # Test user creation, auth fetch helpers
+  e2e/                        # Playwright E2E tests (Node.js, NOT Bun)
+    helpers.ts                # Shared E2E helpers (createE2EUser, loginViaUI)
+  playwright.config.ts        # Playwright config (chromium, headless)
     routes/                   # Route tests (one file per route module)
     middleware/               # Middleware tests
     lib/                      # Lib module tests

@@ -8,7 +8,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test": "bun test",
+    "test": "bun test tests/routes/ tests/middleware/ tests/lib/",
+    "test:integration": "bun test tests/integration/",
+    "test:e2e": "npx playwright test",
+    "test:all": "bun run test && bun run test:integration && bun run test:e2e",
     "typecheck": "tsc --noEmit",
     "seed": "bun run src/scripts/seed.ts"
   },
@@ -22,6 +25,7 @@
     "postgres": "^3.4.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/bun": "^1.2.4",
     "@types/dompurify": "^3.2.0",
     "@types/jsdom": "^28.0.0",

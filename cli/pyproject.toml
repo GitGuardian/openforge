@@ -33,6 +33,10 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: HTTP transport integration tests (respx)",
+    "e2e: subprocess smoke tests",
+]
 
 [dependency-groups]
 dev = [
@@ -40,6 +44,7 @@ dev = [
     "pytest>=8.3.0",
     "pytest-cov>=6.0.0",
     "bandit>=1.8.0",
+    "respx>=0.22.0",
 ]
 
 [tool.coverage.run]

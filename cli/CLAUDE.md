@@ -19,7 +19,10 @@ This file contains rules, commands, and conventions specific to the OpenForge CL
 
 ```bash
 uv sync                  # Install dependencies
-uv run pytest            # Run tests
+uv run pytest            # Run all tests (unit + integration + e2e)
+uv run pytest tests/ --ignore=tests/integration --ignore=tests/e2e  # Run unit tests only (~0.7s)
+uv run pytest tests/integration/  # Run respx HTTP transport tests (~1-2s)
+uv run pytest tests/e2e/          # Run subprocess smoke tests (~3-5s)
 uv run pyright           # Type check (strict mode)
 uv run openforge --help     # Run CLI locally
 uv run openforge --version  # Show version
@@ -42,6 +45,9 @@ cli/
       find_cmd.py             # find command
       list_cmd.py             # list command
       config.py               # config command
+      auth.py                 # auth sub-commands (login, logout, status)
+      publish.py              # publish command (submit plugin to Forge)
+      api_client.py           # ForgeClient — HTTP client for Forge API
       agents/
         registry.py           # All 75 agent configs (data-driven)
         base.py               # AgentConfig dataclass + AgentAdapter protocol
@@ -59,7 +65,9 @@ cli/
       config_file.py          # TOML config read/write/precedence
       telemetry.py            # Fire-and-forget JSON POST
       types.py
-  tests/
+  tests/                    # Unit tests (mocked, pytest)
+    integration/            # respx HTTP transport tests
+    e2e/                    # Subprocess smoke tests
 ```
 
 ---
