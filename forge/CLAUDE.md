@@ -54,26 +54,32 @@ forge/
     middleware/
       auth.ts                 # Supabase Auth middleware
     routes/
-      pages.ts                # HTML page routes (catalogue, detail)
+      pages.ts                # HTML page routes (catalogue, detail, submit, my-submissions, curator)
       api.ts                  # JSON API (marketplace.json, telemetry, well-known)
       auth.ts                 # Auth routes (login, signup, magic-link, logout)
       health.ts               # GET /health
       votes.ts                # Vote routes (upvote, downvote, remove)
       comments.ts             # Comment routes (create, edit, delete, load)
       webhooks.ts             # GitHub webhook endpoint (HMAC-verified, triggers indexing)
+      submissions.ts          # Submissions API (create, list, review)
     db/
-      schema.ts               # Drizzle table definitions (8 tables)
+      schema.ts               # Drizzle table definitions (9 tables, incl. submissions)
       index.ts                # Database client
     lib/
       markdown.ts             # Markdown rendering (marked + DOMPurify)
       supabase.ts             # Supabase client (auth, storage)
       rate-limit.ts           # In-memory rate limiting
-      indexer.ts              # Indexer library (clone, scan, upsert plugins/skills)
+      indexer.ts              # Indexer library (clone, scan, upsert plugins/skills, indexSubmission)
+      notifications.ts        # Email notifications (fire-and-forget)
     views/
       layout.ts               # HTML layout (Tailwind + HTMX, auth-aware nav)
+      submit.ts               # Submit plugin form (/submit)
+      my-submissions.ts       # User's own submissions (/my/submissions)
+      curator-dashboard.ts    # Curator submissions dashboard (/curator/submissions)
       components/
         vote-widget.ts        # HN-style vote widget
         comment-section.ts    # Threaded comment section with EasyMDE
+        submission-review.ts  # Curator review banner (approve/reject)
     scripts/
       seed.ts                 # Seed database from git repos
       check-coverage.sh       # Coverage threshold check (used by pre-commit hook)
@@ -121,10 +127,11 @@ Access the current user via `c.get("user")` in any route. The auth middleware in
 ## Key Files
 
 - **`src/index.ts`** — Entry point. All middleware and routes registered here.
-- **`src/db/schema.ts`** — Database schema (8 tables). Source of truth for what tables exist.
+- **`src/db/schema.ts`** — Database schema (9 tables). Source of truth for what tables exist.
 - **`src/routes/auth.ts`** — Auth routes (login, signup, magic-link, callback, logout).
-- **`src/routes/pages.ts`** — Catalogue page with search/pagination, plugin detail page.
+- **`src/routes/pages.ts`** — Catalogue page with search/pagination, plugin detail page, submit form, my-submissions, curator dashboard.
 - **`src/routes/api.ts`** — JSON APIs (marketplace.json, skills index, telemetry).
+- **`src/routes/submissions.ts`** — Submissions API (POST create, GET list, POST review).
 - **`src/middleware/auth.ts`** — Supabase Auth session handling, private/public mode.
 - **`src/views/layout.ts`** — HTML layout wrapper with auth-aware nav.
 - **`src/scripts/seed.ts`** — Seed database by cloning and scanning git repos.

@@ -22,6 +22,13 @@ app.use("*", logger());
 // HMAC signature verification provides equivalent protection.
 app.route("/", webhookRoutes);
 
+// Submissions API registered before CSRF — CLI clients use Bearer token auth,
+// not browser cookies, so CSRF protection is not needed (or possible).
+// Auth middleware is applied inline so user context is available.
+app.use("/api/submissions/*", authMiddleware);
+app.use("/api/submissions", authMiddleware);
+app.route("/", submissionRoutes);
+
 app.use("*", csrf());
 app.use("*", authMiddleware);
 
@@ -33,7 +40,6 @@ app.route("/", healthRoutes);
 app.route("/", authRoutes);
 app.route("/", voteRoutes);
 app.route("/", commentRoutes);
-app.route("/", submissionRoutes);
 app.route("/", apiRoutes);
 app.route("/", pageRoutes);
 

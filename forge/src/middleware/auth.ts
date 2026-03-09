@@ -57,7 +57,10 @@ async function getOrCreateUser(authId: string, email: string): Promise<AppUser> 
 // ---------------------------------------------------------------------------
 
 export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
-  const accessToken = getCookie(c, "sb-access-token");
+  // Support both cookie auth (browser) and Bearer token auth (CLI/API)
+  const authHeader = c.req.header("Authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const accessToken = bearerToken || getCookie(c, "sb-access-token");
 
   if (!accessToken) {
     c.set("user", null);
