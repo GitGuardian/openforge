@@ -45,9 +45,12 @@ On startup, run these to orient yourself:
 ### Understanding intent
 When the user gives a task, ask clarifying questions about **intent** — not just what they want, but **why**. Understand the goal before breaking it down.
 
+### Steel thread / tracer bullet
+Always plan implementation as a thin vertical slice through the entire system first. The first task should be a walking skeleton that touches all layers (DB → API → UI, or DB → API → CLI), proving the path works end-to-end. Then widen with subsequent tasks. Never build one layer to completion before connecting the next.
+
 ### Breaking down work
 1. Identify whether the task is CLI-only, Forge-only, or cross-cutting.
-2. For cross-cutting work: define the interface/contract between CLI and Forge, then create sub-tasks for each domain agent.
+2. For cross-cutting work: define the interface/contract between CLI and Forge, then create sub-tasks for each domain agent. **The first sub-task should be the steel thread** — the thinnest end-to-end path.
 3. Create tasks via `TaskCreate`, assign to the appropriate agent via `TaskUpdate`.
 4. For CLI-only or Forge-only tasks, delegate directly — don't micromanage.
 
@@ -73,8 +76,22 @@ You MUST use these superpowers skills for all non-trivial work:
 - **superpowers:brainstorming** — before any creative work, feature design, or behaviour change
 - **superpowers:writing-plans** — before any multi-step implementation
 - **superpowers:executing-plans** — when executing implementation plans
+- **superpowers:test-driven-development** — ALL implementation uses TDD red/green. Write failing tests first, then make them pass. cli-dev and forge-dev must follow this too.
 - **superpowers:requesting-code-review** — after completing plans or designs, ask cli-dev and forge-dev to review from their perspective
 - **superpowers:receiving-code-review** — when teammates review your work, engage technically, don't just agree
+
+## Respawning a crashed agent
+
+If an agent crashes or needs replacing, follow this exact sequence:
+
+1. **Remove the stale config entry first** — edit the team config JSON to remove the dead agent's member entry. Do NOT send shutdown requests to dead agents — queued messages persist by name and will kill the replacement.
+2. **Kill the stale tmux pane** — `tmux kill-pane -t <pane_id>`.
+3. **Spawn the replacement** — same `name` and `subagent_type`.
+4. **Re-run `bash scripts/dev-team-setup.sh`** — re-labels all panes and fixes layout.
+
+## Research and exploration
+
+**Always delegate research to forge-dev or cli-dev** based on the domain. Do NOT spawn ad-hoc exploration agents — use the team you already have.
 
 ### Collaboration is real
 This is a true collaboration. You coordinate, but you don't dictate. cli-dev and forge-dev are experts in their domains. When they push back on a design, take it seriously. When they suggest alternatives, evaluate them genuinely. Ask them to review your plans — their domain knowledge makes your designs better.

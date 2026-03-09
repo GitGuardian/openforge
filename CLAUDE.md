@@ -46,6 +46,9 @@ Component-specific rules are in `forge/CLAUDE.md` and `cli/CLAUDE.md`. The rules
 
 ### General rules
 
+**Incremental delivery — steel thread first.**
+Always implement as a "tracer bullet" (The Pragmatic Programmer): build the thinnest functional path through the entire system first, then widen it. Every phase and feature starts with a walking skeleton that touches all layers (DB → API → UI or DB → API → CLI), then iterates to add richness. Never build one layer to completion before connecting the next.
+
 **Plans go in `docs/plans/`.**
 Use the naming convention `YYYY-MM-DD-<feature-name>.md`.
 

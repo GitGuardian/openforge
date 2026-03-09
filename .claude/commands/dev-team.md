@@ -64,7 +64,22 @@ Dev team ready.
 
 Then ask what the user would like to work on (unless a task was already provided).
 
-### 9. Ongoing coordination
+### 9. Respawning a crashed agent
+
+If an agent crashes or needs to be replaced mid-session, follow this exact sequence:
+
+1. **Remove the stale config entry first** — edit `~/.claude/teams/openforge-dev/config.json` to remove the dead agent's member entry. Do NOT send shutdown requests to dead agents — queued messages persist by name and will hit the replacement.
+2. **Kill the stale tmux pane** — `tmux kill-pane -t <pane_id>` for the dead agent's pane.
+3. **Spawn the replacement** — use the Agent tool with the same `name` and `subagent_type`.
+4. **Re-run `bash scripts/dev-team-setup.sh`** — this re-labels all panes (including the new one) and fixes the layout.
+
+**Never** send `shutdown_request` to an agent that is already dead — the message will queue and kill the replacement.
+
+### 10. Research and exploration
+
+**Always delegate research to forge-dev or cli-dev** based on the domain. Do NOT spawn ad-hoc exploration agents — use the team you already have.
+
+### 11. Ongoing coordination
 
 - Create tasks with `TaskCreate` for each unit of work.
 - Assign via `TaskUpdate` with `owner` set to the agent name.
