@@ -76,6 +76,7 @@ forge/
         comment-section.ts    # Threaded comment section with EasyMDE
     scripts/
       seed.ts                 # Seed database from git repos
+      check-coverage.sh       # Coverage threshold check (used by pre-commit hook)
   tests/                      # Test suite (bun test, 90%+ coverage target)
     setup.ts                  # Shared test helpers (mockUser, createTestApp)
     routes/                   # Route tests (one file per route module)

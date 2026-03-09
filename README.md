@@ -13,14 +13,16 @@ The canonical plugin format is Claude Code's `.claude-plugin/` structure. The CL
 
 ## Status
 
-- **Phase 1 (CLI MVP)** — Complete. 188 tests, 93%+ coverage, 0 pyright errors.
-- **Phase 2 (The Forge MVP)** — In progress. Web app with catalogue, search, auth, seed script.
+| Phase | Status | Highlights |
+|-------|--------|------------|
+| 1 — CLI MVP | **Complete** | 6 commands, 261 tests, 93%+ coverage, 75 agents |
+| 2 — The Forge MVP | **Complete** | Catalogue, search, auth, RLS (29 policies), seed script |
+| 3 — Community Features | **Complete** | Voting, comments, sorting, CSRF, rate limiting |
+| 4 — Indexing & CLI Parity | **Complete** | Webhooks, indexer, 6 providers, check/update, remote find |
+| 5 — Submissions & Curation | Next | |
+| 6 — Hardening | Next | Test suite done (167 tests, 92%+ coverage) |
 
-See [docs/plans/](docs/plans/) for design documents:
-- [PRD](docs/plans/2026-03-06-openforge-platform.md) — full product requirements
-- [Architecture Design](docs/plans/2026-03-06-openforge-architecture-design.md) — system architecture
-- [Phase 1 CLI MVP Design](docs/plans/2026-03-06-phase1-cli-mvp-design.md) — CLI implementation
-- [Phase 2 Forge MVP Design](docs/plans/2026-03-06-phase2-forge-mvp-design.md) — web app implementation
+See [docs/plans/](docs/plans/) for design documents.
 
 ## Quick Start
 
