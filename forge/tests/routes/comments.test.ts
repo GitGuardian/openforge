@@ -456,6 +456,97 @@ describe("PATCH /plugins/:name/comments/:id", () => {
     expect(updatedComment).not.toBeNull();
     expect(updatedComment!.body).toBe("edited text");
   });
+
+  test("accepts form-encoded edit body", async () => {
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "body=form+edited",
+    });
+    expect(res.status).toBe(200);
+    expect(updatedComment!.body).toBe("form edited");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: GET /plugins/:name/comments/:id/edit
+// ---------------------------------------------------------------------------
+
+describe("GET /plugins/:name/comments/:id/edit", () => {
+  beforeEach(() => {
+    mockComments = [{
+      id: COMMENT_ID,
+      body: "original body",
+      parentId: null,
+      pluginId: PLUGIN_ID,
+      userId: mockUser().id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }];
+  });
+
+  test("rejects unauthenticated users", async () => {
+    const app = createCommentApp(null);
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}/edit`);
+    expect(res.status).toBe(401);
+  });
+
+  test("rejects invalid comment ID", async () => {
+    const app = createCommentApp();
+    const res = await app.request("/plugins/test/comments/bad-id/edit");
+    expect(res.status).toBe(400);
+  });
+
+  test("returns 404 when comment does not exist", async () => {
+    mockComments = [];
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}/edit`);
+    expect(res.status).toBe(404);
+  });
+
+  test("rejects editing someone else's comment", async () => {
+    mockComments = [{
+      id: COMMENT_ID,
+      body: "not mine",
+      parentId: null,
+      pluginId: PLUGIN_ID,
+      userId: "other-user-id",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }];
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}/edit`);
+    expect(res.status).toBe(403);
+  });
+
+  test("returns edit form HTML for own comment", async () => {
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}/edit`);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("textarea");
+    expect(html).toContain("original body");
+    expect(html).toContain("hx-patch");
+    expect(html).toContain("Save");
+  });
+
+  test("renders nested comment edit form with indent class", async () => {
+    mockComments = [{
+      id: COMMENT_ID,
+      body: "a reply",
+      parentId: "parent-id",
+      pluginId: PLUGIN_ID,
+      userId: mockUser().id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }];
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}/edit`);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("ml-8");
+  });
 });
 
 // ---------------------------------------------------------------------------

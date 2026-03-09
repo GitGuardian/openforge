@@ -300,4 +300,18 @@ describe("POST /plugins/:name/vote", () => {
     expect(res.status).toBe(200);
     expect(insertedVote).not.toBeNull();
   });
+
+  // --- Invalid JSON body ---
+
+  test("rejects invalid JSON body", async () => {
+    const app = createVoteApp();
+    const res = await app.request("/plugins/test-plugin/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not json",
+    });
+    expect(res.status).toBe(400);
+    const text = await res.text();
+    expect(text).toBe("Invalid JSON body");
+  });
 });
