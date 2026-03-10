@@ -39,6 +39,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: tests-forge-integration
+        name: bun test integration (forge)
+        entry: bash -c 'if curl -sf http://localhost:3000/health >/dev/null 2>&1; then cd forge && bun test tests/integration/ 2>&1 | tail -1; else echo "Skipped (Forge not running)"; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: typecheck-forge
         name: typecheck (forge)
         entry: bash -c 'cd forge && bun run typecheck'

@@ -133,6 +133,15 @@ Access the current user via `c.get("user")` in any route. The auth middleware in
 
 **Coverage minimum is 90%.** Enforced by pre-commit hook (`scripts/check-coverage.sh`). Run `bash scripts/check-coverage.sh 90` to check locally. Never commit changes that drop coverage below 90%.
 
+**Run local CI before pushing anything bigger than a tiny fix.**
+```bash
+bun run test                 # Unit tests (~0.7s)
+bun run test:integration     # Integration tests — requires Forge+Supabase running (~1.5s)
+npx playwright test          # E2E browser tests — requires Forge+Supabase running (~7s)
+bun run typecheck            # TypeScript type checking
+```
+Integration and Playwright tests need local Supabase (`supabase start`) and Forge (`bun run dev`). The pre-commit hook runs integration tests automatically if Forge is reachable; Playwright is CI-only.
+
 ---
 
 ## Key Files

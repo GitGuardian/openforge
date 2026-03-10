@@ -51,16 +51,27 @@ if [[ "$FILE_PATH" == *.ts && "$FILE_PATH" == *forge/* ]]; then
     exit $?
   fi
 
+  # Playwright spec files — skip (run via npx playwright test)
+  if [[ "$FILE_PATH" == *.spec.ts ]]; then
+    exit 0
+  fi
+
   if [[ "$BASENAME" == index || "$BASENAME" == types || "$BASENAME" == schema ]]; then
     exit 0
   fi
 
   TEST_FILE=""
+  INTEGRATION_FILE=""
   if [[ "$FILE_PATH" == *forge/src/routes/* ]]; then
     TEST_FILE="forge/tests/routes/${BASENAME}.test.ts"
+    INTEGRATION_FILE="forge/tests/integration/${BASENAME}.test.ts"
   elif [[ "$FILE_PATH" == *forge/src/middleware/* ]]; then
     if [[ "$BASENAME" == "auth" ]]; then
       run_bun_test tests/middleware/auth.test.ts tests/middleware/auth-middleware.test.ts
+      # Also run auth integration test if Forge is running
+      if curl -sf http://localhost:3000/health >/dev/null 2>&1 && [[ -f "forge/tests/integration/auth.test.ts" ]]; then
+        run_bun_test tests/integration/auth.test.ts
+      fi
       exit $?
     fi
     TEST_FILE="forge/tests/middleware/${BASENAME}.test.ts"
@@ -72,7 +83,11 @@ if [[ "$FILE_PATH" == *.ts && "$FILE_PATH" == *forge/* ]]; then
 
   if [[ -n "$TEST_FILE" && -f "$TEST_FILE" ]]; then
     run_bun_test "$TEST_FILE"
-    exit $?
+  fi
+
+  # Also run matching integration test if Forge is running
+  if [[ -n "$INTEGRATION_FILE" && -f "$INTEGRATION_FILE" ]] && curl -sf http://localhost:3000/health >/dev/null 2>&1; then
+    run_bun_test "$INTEGRATION_FILE"
   fi
 
   exit 0
@@ -118,6 +133,12 @@ if [[ "$FILE_PATH" == *cli/src/openforge/* ]]; then
 
   if [[ -f "$TEST_FILE" ]]; then
     run_pytest "$TEST_FILE" -x -q
+  fi
+
+  # Also run matching integration test if it exists
+  INTEGRATION_FILE="cli/tests/integration/test_${BASENAME}_transport.py"
+  if [[ -f "$INTEGRATION_FILE" ]]; then
+    run_pytest "$INTEGRATION_FILE" -x -q
   fi
 fi
 

@@ -61,6 +61,15 @@ uv run pytest && uv run pyright src/openforge/
 ```
 Only mark a task done if both commands pass with zero errors.
 
+### Local CI — run before pushing
+Before pushing anything bigger than a tiny fix, run the full local CI:
+```bash
+uv run pytest                              # All tests: unit + integration + e2e (~3.5s)
+uv run pytest --cov --cov-fail-under=90    # With coverage check
+uv run pyright src/openforge/              # Type checking
+```
+The integration tests (respx) run in-process and don't need external services. The e2e subprocess tests need `uv run openforge` to work (it always does after `uv sync`).
+
 ### Design docs
 For non-trivial CLI features, write a design doc to `docs/plans/YYYY-MM-DD-<name>.md` before implementing. Send it to team-lead and forge-dev for review.
 

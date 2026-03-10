@@ -107,6 +107,14 @@ Never fix a bug without a test that covers it. Never skip the verification step.
 **Run the full test suite before committing.**
 Always run `uv run pytest && uv run pyright src/openforge/` before committing any change.
 
+**Run local CI before pushing anything bigger than a tiny fix.**
+```bash
+uv run pytest                              # All tests: unit + integration + e2e (~3.5s)
+uv run pytest --cov --cov-fail-under=90    # With coverage check
+uv run pyright src/openforge/              # Type checking
+```
+The integration tests (respx) and e2e subprocess tests run without external services. The pre-commit hook already runs all tiers automatically.
+
 ---
 
 ## Key Files

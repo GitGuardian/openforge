@@ -56,6 +56,16 @@ bun run typecheck
 ```
 Only mark a task done if typecheck passes with zero errors.
 
+### Local CI — run before pushing
+Before pushing anything bigger than a tiny fix, run the full local CI:
+```bash
+bun run test                 # Unit tests (~0.7s)
+bun run test:integration     # Integration tests against real Forge+Supabase (~1.5s)
+npx playwright test          # E2E browser tests (~7s) — requires Forge+Supabase running
+bun run typecheck            # TypeScript type checking
+```
+Integration and E2E tests require local Supabase (`supabase start`) and Forge (`bun run dev`) to be running. If they're not running, start them or skip those tiers — but note this in your message to team-lead.
+
 ### Schema changes
 After ANY change to `src/db/schema.ts`, you MUST run:
 ```bash
