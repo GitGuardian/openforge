@@ -132,3 +132,77 @@ def test_set_config_value_rejects_unknown_key(tmp_path: Path) -> None:
     user_dir.mkdir()
     with pytest.raises(ValueError, match="Unknown config key"):
         set_config_value("bogus.key", "evil", user_config_dir=user_dir)
+
+
+# ---------------------------------------------------------------------------
+# supabase_url config tests
+# ---------------------------------------------------------------------------
+
+
+def test_supabase_url_defaults_to_forge_url(tmp_path: Path) -> None:
+    """When no supabase.url is set, supabase_url falls back to forge_url."""
+    config = load_config(project_dir=tmp_path, user_config_dir=tmp_path / "user")
+    assert config.supabase_url == config.forge_url
+
+
+def test_supabase_url_from_user_config(tmp_path: Path) -> None:
+    """supabase_url reads from user config file."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    (user_dir / "config.toml").write_text('[supabase]\nurl = "http://localhost:54321"\n')
+    config = load_config(project_dir=tmp_path, user_config_dir=user_dir)
+    assert config.supabase_url == "http://localhost:54321"
+
+
+def test_supabase_url_from_project_config(tmp_path: Path) -> None:
+    """supabase_url from project config overrides user config."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    (user_dir / "config.toml").write_text('[supabase]\nurl = "http://user-supabase:54321"\n')
+    (tmp_path / ".openforge.toml").write_text('[supabase]\nurl = "http://project-supabase:54321"\n')
+    config = load_config(project_dir=tmp_path, user_config_dir=user_dir)
+    assert config.supabase_url == "http://project-supabase:54321"
+
+
+def test_supabase_url_env_var_overrides_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OPENFORGE_SUPABASE_URL env var overrides all config layers."""
+    (tmp_path / ".openforge.toml").write_text('[supabase]\nurl = "http://project:54321"\n')
+    monkeypatch.setenv("OPENFORGE_SUPABASE_URL", "http://env-supabase:54321")
+    config = load_config(project_dir=tmp_path, user_config_dir=tmp_path / "user")
+    assert config.supabase_url == "http://env-supabase:54321"
+
+
+def test_supabase_url_env_var_SUPABASE_URL(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """SUPABASE_URL env var is also respected (common Supabase convention)."""
+    monkeypatch.setenv("SUPABASE_URL", "http://supabase-env:54321")
+    config = load_config(project_dir=tmp_path, user_config_dir=tmp_path / "user")
+    assert config.supabase_url == "http://supabase-env:54321"
+
+
+def test_OPENFORGE_SUPABASE_URL_overrides_SUPABASE_URL(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OPENFORGE_SUPABASE_URL takes precedence over SUPABASE_URL."""
+    monkeypatch.setenv("SUPABASE_URL", "http://generic:54321")
+    monkeypatch.setenv("OPENFORGE_SUPABASE_URL", "http://specific:54321")
+    config = load_config(project_dir=tmp_path, user_config_dir=tmp_path / "user")
+    assert config.supabase_url == "http://specific:54321"
+
+
+def test_get_config_value_supabase_url(tmp_path: Path) -> None:
+    """get_config_value works for supabase.url key."""
+    (tmp_path / ".openforge.toml").write_text('[supabase]\nurl = "http://local:54321"\n')
+    val = get_config_value("supabase.url", project_dir=tmp_path, user_config_dir=tmp_path / "user")
+    assert val.value == "http://local:54321"
+    assert val.source == "project"
+
+
+def test_set_config_value_supabase_url(tmp_path: Path) -> None:
+    """set_config_value accepts supabase.url."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    set_config_value("supabase.url", "http://my-supabase:54321", user_config_dir=user_dir)
+    content = (user_dir / "config.toml").read_text()
+    assert "http://my-supabase:54321" in content

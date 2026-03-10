@@ -237,6 +237,37 @@ def test_sign_in_with_password_failure_fallback_msg() -> None:
         _sign_in_with_password("a@b.com", "x", "https://forge.example.com")
 
 
+def test_login_uses_supabase_url_not_forge_url(tmp_path: Path) -> None:
+    """Login command uses config.supabase_url for GoTrue auth, not forge_url."""
+    app = _make_auth_app()
+
+    mock_response = MagicMock()
+    mock_response.session = MagicMock()
+    mock_response.session.access_token = "token"
+    mock_response.session.refresh_token = "refresh"
+    mock_response.user = MagicMock()
+    mock_response.user.email = "a@b.com"
+    mock_response.user.id = "u1"
+
+    token_dir = tmp_path / "config"
+
+    with (
+        patch("openforge.auth._get_token_dir", return_value=token_dir),
+        patch("openforge.auth._sign_in_with_password", return_value=mock_response) as mock_sign_in,
+        patch(
+            "openforge.config_file.load_config",
+            return_value=MagicMock(
+                forge_url="https://forge.example.com",
+                supabase_url="http://localhost:54321",
+            ),
+        ),
+    ):
+        result = runner.invoke(app, ["auth", "login"], input="a@b.com\npass\n")
+        assert result.exit_code == 0, result.output
+        # Must pass supabase_url, NOT forge_url
+        mock_sign_in.assert_called_once_with("a@b.com", "pass", "http://localhost:54321")
+
+
 def test_token_file_has_restrictive_permissions(tmp_path: Path) -> None:
     """Token file is written with 600 permissions."""
     import os

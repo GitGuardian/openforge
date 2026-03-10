@@ -116,10 +116,10 @@ def login_command() -> None:
     password = typer.prompt("Password", hide_input=True)
 
     config = load_config()
-    forge_url = config.forge_url
+    supabase_url = config.supabase_url
 
     try:
-        result = _sign_in_with_password(email, password, forge_url)
+        result = _sign_in_with_password(email, password, supabase_url)
     except ValueError as e:
         _console.print(f"[red]Login failed: {e}[/red]")
         raise typer.Exit(code=1) from None

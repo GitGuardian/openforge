@@ -37,6 +37,7 @@ class Config:
     """Resolved configuration values."""
 
     forge_url: str = "https://openforge.gitguardian.com"
+    supabase_url: str = ""  # defaults to forge_url at load time
     telemetry_enabled: bool = True
 
 
@@ -54,6 +55,7 @@ class ConfigValue:
 
 _DEFAULTS: dict[str, str] = {
     "forge.url": "https://openforge.gitguardian.com",
+    "supabase.url": "",
     "telemetry.enabled": "true",
 }
 
@@ -98,6 +100,7 @@ def _env_key_for(dotted_key: str) -> str | None:
     """Return the environment variable name for a config key, or None."""
     mapping: dict[str, str] = {
         "forge.url": "OPENFORGE_FORGE_URL",
+        "supabase.url": "OPENFORGE_SUPABASE_URL",
     }
     return mapping.get(dotted_key)
 
@@ -137,6 +140,22 @@ def load_config(
     if env_val is not None:
         forge_url = env_val
 
+    # --- supabase_url ---
+    # Precedence: OPENFORGE_SUPABASE_URL > SUPABASE_URL > project > user > forge_url
+    supabase_url = forge_url  # fallback to forge_url
+    user_sb = _get_nested(user_data, "supabase.url")
+    if user_sb is not None:
+        supabase_url = user_sb
+    proj_sb = _get_nested(project_data, "supabase.url")
+    if proj_sb is not None:
+        supabase_url = proj_sb
+    sb_env = os.environ.get("SUPABASE_URL")
+    if sb_env is not None:
+        supabase_url = sb_env
+    sb_of_env = os.environ.get("OPENFORGE_SUPABASE_URL")
+    if sb_of_env is not None:
+        supabase_url = sb_of_env
+
     # --- telemetry_enabled ---
     telemetry_enabled = Config.telemetry_enabled  # default
     user_tel = _get_nested(user_data, "telemetry.enabled")
@@ -152,7 +171,9 @@ def load_config(
     if _is_ci():
         telemetry_enabled = False
 
-    return Config(forge_url=forge_url, telemetry_enabled=telemetry_enabled)
+    return Config(
+        forge_url=forge_url, supabase_url=supabase_url, telemetry_enabled=telemetry_enabled
+    )
 
 
 def get_config_value(
