@@ -144,6 +144,36 @@ Integration and Playwright tests need local Supabase (`supabase start`) and Forg
 
 ---
 
+## Testing Conventions
+
+### Testing pyramid (4 tiers)
+
+| Tier | Name | Tool |
+|------|------|------|
+| 1 | Unit | `bun test` (mocked) |
+| 2 | Integration | `fetch()` against live Forge+Supabase |
+| 3 | E2E (component) | Playwright browser tests |
+| 4 | Cross-component E2E | Playwright + CLI subprocess (`spawnSync`) |
+
+### Rule: every feature must have
+
+1. A happy-path **integration test** — `fetch()` against live Forge server + local Supabase
+2. A happy-path **E2E test** — Playwright browser test
+3. Any feature crossing the CLI↔Forge boundary must also have a **cross-component E2E test** in `e2e/cross-component.spec.ts`
+
+### TDD order is mandatory
+
+- Write integration and E2E tests **first** (red), then implement until they pass (green)
+- When fixing a bug: write a failing test that reproduces the bug first, then fix the code
+- Never write implementation code before a failing test exists
+
+### Exceptions (note explicitly — never silently skip)
+
+- Pure infrastructure/middleware (CSRF, rate limiting, logging) — unit only acceptable
+- Features browser-untestable by nature (webhooks, background jobs) — integration only acceptable
+
+---
+
 ## Key Files
 
 - **`src/index.ts`** — Entry point. All middleware and routes registered here.
