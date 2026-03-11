@@ -1,5 +1,6 @@
 // forge/src/views/components/comment-section.ts
 import { html, raw } from "hono/html";
+import type { HtmlEscapedString } from "hono/utils/html";
 import { renderMarkdown } from "../../lib/markdown";
 import type { AppUser } from "../../types";
 
@@ -29,7 +30,8 @@ export function commentBody(
   user: AppUser | null,
   pluginName: string,
   isReply: boolean,
-) {
+  replies?: CommentRow[],
+): HtmlEscapedString | Promise<HtmlEscapedString> {
   const isOwner = user?.id === comment.userId;
   const displayName =
     comment.userDisplayName ?? comment.userEmail.split("@")[0];
@@ -114,6 +116,9 @@ export function commentBody(
                 </button>
               </form>
             </div>
+            <div class="replies">
+              ${replies?.map((r) => commentBody(r, user, pluginName, true)) ?? ""}
+            </div>
           `
         : ""}
     </div>
@@ -187,14 +192,7 @@ export function commentSection(
       <div id="comments-list" class="divide-y divide-gray-100">
         ${topLevel.map(
           (c) => html`
-            <div>
-              ${commentBody(c, user, pluginName, false)}
-              <div class="replies">
-                ${(repliesByParent.get(c.id) ?? []).map((r) =>
-                  commentBody(r, user, pluginName, true),
-                )}
-              </div>
-            </div>
+            ${commentBody(c, user, pluginName, false, repliesByParent.get(c.id))}
           `,
         )}
       </div>
