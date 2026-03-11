@@ -9,8 +9,8 @@
 import { spawnSync } from "child_process";
 import { resolve } from "path";
 
-/** Absolute path to the cli/ directory (one level up from forge/, one more up from e2e/) */
-export const CLI_DIR = resolve(__dirname, "../../cli");
+/** Absolute path to the cli/ directory — resolve from cwd (forge/) */
+export const CLI_DIR = resolve(process.cwd(), "../cli");
 
 export interface CLIResult {
   exitCode: number;
