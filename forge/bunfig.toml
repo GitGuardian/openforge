@@ -1,0 +1,5 @@
+[test]
+preload = ["./tests/setup.ts"]
+
+# Exclude Playwright e2e and integration tests from default `bun test`
+root = "./tests/"
