@@ -46,4 +46,57 @@ test.describe("Catalogue E2E", () => {
       await expect(page.locator("#plugin-list")).toBeVisible();
     }
   });
+
+  test("plugin detail page renders without errors", async ({ page }) => {
+    await page.goto("/");
+    const firstPlugin = page.locator("a[href^='/plugins/']").first();
+    await expect(firstPlugin).toBeVisible({ timeout: 5000 });
+    const href = await firstPlugin.getAttribute("href");
+    await page.goto(href!);
+
+    await expect(page).toHaveURL(/\/plugins\//);
+    await expect(page.locator("body")).not.toContainText("Not Found");
+    await expect(page.locator("body")).not.toContainText(
+      "Internal Server Error",
+    );
+    // Plugin name heading must be visible
+    await expect(page.locator("h1").first()).toBeVisible();
+  });
+
+  test("plugin detail page shows metadata and install sections", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const firstPlugin = page.locator("a[href^='/plugins/']").first();
+    await expect(firstPlugin).toBeVisible({ timeout: 5000 });
+    const href = await firstPlugin.getAttribute("href");
+    await page.goto(href!);
+
+    await expect(page).toHaveURL(/\/plugins\//);
+    // Install section is always present
+    await expect(page.locator("h2:text-is('Install')")).toBeVisible();
+    // Metadata section is always present
+    await expect(page.locator("h2:text-is('Metadata')")).toBeVisible();
+    // Comments section is always present
+    await expect(page.locator("#comments-section")).toBeVisible();
+  });
+
+  test("search with results returns matching plugins", async ({ page }) => {
+    await page.goto("/");
+    const searchInput = page.locator("input[name='q']");
+    await expect(searchInput).toBeVisible();
+
+    await searchInput.fill("plugin");
+
+    // Wait for HTMX GET response
+    await page.waitForResponse(
+      (r) =>
+        r.url().includes("/partials/plugin-list") &&
+        r.request().method() === "GET",
+    );
+
+    const listArea = page.locator("#plugin-list");
+    await expect(listArea).toBeVisible();
+    await expect(listArea).not.toContainText("Internal Server Error");
+  });
 });
