@@ -117,6 +117,36 @@ The integration tests (respx) and e2e subprocess tests run without external serv
 
 ---
 
+## Testing Conventions
+
+### Testing pyramid (4 tiers)
+
+| Tier | Name | Tool |
+|------|------|------|
+| 1 | Unit | `pytest` (mocked) |
+| 2 | Integration | `unittest.mock.patch` / `respx` HTTP transport mock |
+| 3 | E2E (component) | subprocess smoke tests (`tests/e2e/`) |
+| 4 | Cross-component E2E | Playwright + CLI subprocess (in `forge/e2e/cross-component.spec.ts`) |
+
+### Rule: every feature must have
+
+1. A happy-path **integration test** — `patch`/`respx` verifying HTTP calls and logic
+2. A happy-path **E2E test** — subprocess smoke test via `run_openforge` fixture
+3. Any feature crossing the CLI↔Forge boundary must also have a **cross-component E2E test** coordinated with forge-dev
+
+### TDD order is mandatory
+
+- Write integration and E2E tests **first** (red), then implement until they pass (green)
+- When fixing a bug: write a failing test that reproduces the bug first, then fix the code
+- Never write implementation code before a failing test exists
+
+### Exceptions (note explicitly — never silently skip)
+
+- Pure config/parsing logic — unit only acceptable
+- Features that require external state with no mock path — integration only acceptable
+
+---
+
 ## Key Files
 
 - **`src/openforge/cli.py`** — Typer app. All commands registered here.
