@@ -127,6 +127,12 @@ test.describe("Comments E2E", () => {
       "Original comment text",
     );
 
+    // Reload so the full server-rendered page processes HTMX attributes
+    await page.reload();
+    await expect(page.locator("#comments-list")).toContainText(
+      "Original comment text",
+    );
+
     // Click Edit (hx-get fetches edit form)
     const editBtn = page.locator("button:text-is('Edit')").first();
     await expect(editBtn).toBeVisible();
