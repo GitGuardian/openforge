@@ -159,12 +159,12 @@ export function commentSection(
               hx-target="#comments-list"
               hx-swap="afterbegin"
               hx-on::after-request="this.reset(); if(window.easyMDE) window.easyMDE.value('');"
+              novalidate
               class="mb-6"
             >
               <textarea
                 id="new-comment"
                 name="body"
-                required
                 maxlength="10000"
                 rows="4"
                 placeholder="Write a comment..."

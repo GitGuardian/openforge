@@ -109,6 +109,15 @@ export function layout(
                       placeholder: 'Write a comment...',
                     });
                   }
+                  // Inject EasyMDE value into HTMX request parameters before the request is sent.
+                  // HTMX collects form params before htmx:configRequest fires, so the hidden
+                  // textarea (managed by EasyMDE/CodeMirror) is always empty at collection time.
+                  // Only inject for the new-comment form — not for reply/edit forms.
+                  document.body.addEventListener('htmx:configRequest', function(evt) {
+                    if (window.easyMDE && evt.detail.elt && evt.detail.elt.querySelector && evt.detail.elt.querySelector('#new-comment')) {
+                      evt.detail.parameters['body'] = window.easyMDE.value();
+                    }
+                  });
                 });
               </script>
             `

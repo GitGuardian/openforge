@@ -12,24 +12,22 @@ async function goToFirstPlugin(page: import("@playwright/test").Page) {
 }
 
 /**
- * Fill the main comment form — handles EasyMDE by setting value and
- * syncing to the hidden textarea so HTMX can read it.
+ * Fill the main comment form via CodeMirror's API — does NOT call
+ * codemirror.save() or mde.value(t). The hidden textarea stays empty
+ * until htmx:configRequest fires and calls easyMDE.codemirror.save().
+ * If that listener is ever removed from layout.ts, this test will catch
+ * it: the POST will be sent with an empty body and the server will reject it.
  */
 async function fillAndSubmitComment(
   page: import("@playwright/test").Page,
   text: string,
 ) {
-  // Set the value via EasyMDE API and sync to textarea
+  // Set value via CodeMirror API without syncing to the hidden textarea.
+  // The htmx:configRequest listener in layout.ts is responsible for sync.
   await page.evaluate((t) => {
-    const mde = (window as any).easyMDE;
-    if (mde) {
-      mde.value(t);
-      // EasyMDE keeps the original textarea — sync value to it
-      mde.codemirror.save();
-    } else {
-      const el = document.getElementById("new-comment") as HTMLTextAreaElement;
-      if (el) el.value = t;
-    }
+    const cm = (document.querySelector(".CodeMirror") as any).CodeMirror;
+    cm.setValue(t);
+    cm.focus();
   }, text);
 
   // Click the Comment submit button and wait for POST
@@ -147,20 +145,25 @@ test.describe("Comments E2E", () => {
     ]);
     expect(editFormResp.ok()).toBe(true);
 
-    // Wait for edit textarea to appear
+    // Wait for edit textarea to appear — filter to visible only to skip hidden reply-form textareas
     const editBox = page
       .locator("#comments-list textarea[name='body']")
+      .filter({ visible: true })
       .first();
     await expect(editBox).toBeVisible();
     await editBox.fill("Edited comment text");
 
-    // Submit the edit (PATCH)
+    // Submit the edit (PATCH) — filter to visible submit buttons to skip hidden reply-form buttons
     const [editResp] = await Promise.all([
       page.waitForResponse(
         (r) =>
           r.url().includes("/comments") && r.request().method() === "PATCH",
       ),
-      page.locator("#comments-list button[type='submit']").first().click(),
+      page
+        .locator("#comments-list button[type='submit']")
+        .filter({ visible: true })
+        .first()
+        .click(),
     ]);
     expect(editResp.ok()).toBe(true);
     await expect(page.locator("#comments-list")).toContainText(
