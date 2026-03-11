@@ -59,12 +59,14 @@ test.describe("Curator E2E", () => {
 
     await loginViaUI(page, email, password);
     await promoteUserToCurator(request, userId);
-    await createTestSubmission(request, token);
+    const { gitUrl } = await createTestSubmission(request, token);
 
     await page.goto("/curator/submissions?status=pending");
 
-    // Approve button must be present
-    const approveBtn = page.locator("button:text-is('Approve')").first();
+    // Scope approve button to the row containing our specific submission
+    const row = page.locator("table tbody tr", { hasText: gitUrl });
+    await expect(row).toBeVisible();
+    const approveBtn = row.locator("button:text-is('Approve')");
     await expect(approveBtn).toBeVisible();
 
     const [reviewResp] = await Promise.all([
@@ -89,11 +91,14 @@ test.describe("Curator E2E", () => {
 
     await loginViaUI(page, email, password);
     await promoteUserToCurator(request, userId);
-    await createTestSubmission(request, token);
+    const { gitUrl } = await createTestSubmission(request, token);
 
     await page.goto("/curator/submissions?status=pending");
 
-    const rejectBtn = page.locator("button:text-is('Reject')").first();
+    // Scope reject button to the row containing our specific submission
+    const row = page.locator("table tbody tr", { hasText: gitUrl });
+    await expect(row).toBeVisible();
+    const rejectBtn = row.locator("button:text-is('Reject')");
     await expect(rejectBtn).toBeVisible();
 
     const [reviewResp] = await Promise.all([

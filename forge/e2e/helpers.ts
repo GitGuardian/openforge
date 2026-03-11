@@ -116,7 +116,7 @@ export async function createTestSubmission(
   request: APIRequestContext,
   token: string,
   forgeUrl: string = "http://localhost:3000",
-): Promise<{ id: string }> {
+): Promise<{ id: string; gitUrl: string }> {
   const gitUrl = `https://github.com/e2e-curator-test/plugin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const res = await request.post(`${forgeUrl}/api/submissions`, {
     data: { gitUrl, description: "Curator E2E test submission" },
@@ -131,7 +131,7 @@ export async function createTestSubmission(
     );
   }
   const data = await res.json();
-  return { id: data.id };
+  return { id: data.id, gitUrl };
 }
 
 /** Login a user via the browser UI */

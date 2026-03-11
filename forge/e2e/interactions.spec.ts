@@ -6,31 +6,60 @@ test.describe("HTMX Interactions E2E", () => {
     await page.goto("/");
 
     const searchInput = page.locator("input[name='q']");
-    if (await searchInput.isVisible()) {
-      await searchInput.fill("zzz_nonexistent_zzz");
-      // Wait for HTMX debounce (300ms) + network
-      await page.waitForTimeout(1000);
-      const listArea = page.locator("#plugin-list");
-      await expect(listArea).toContainText("No plugins found");
-      // Page should NOT have fully reloaded — nav should still be present
-      await expect(page.locator("nav")).toBeVisible();
-    }
+    await expect(searchInput).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/partials/plugin-list") &&
+          r.request().method() === "GET",
+      ),
+      searchInput.fill("zzz_nonexistent_zzz"),
+    ]);
+
+    await expect(page.locator("#plugin-list")).toContainText("No plugins found");
+    // Page should NOT have fully reloaded — nav should still be present
+    await expect(page.locator("nav")).toBeVisible();
   });
 
   test("vote click swaps count in-place via HTMX", async ({ page, request }) => {
     const { email, password } = await createE2EUser(request);
     await loginViaUI(page, email, password);
-    await page.goto("/");
 
-    // Find a vote button if visible
-    const voteBtn = page.locator("[hx-post*='vote']").first();
-    if (await voteBtn.isVisible()) {
-      await voteBtn.click();
-      // Wait for HTMX swap
-      await page.waitForTimeout(500);
-      // The vote widget area should still be functional (no error)
-      const updatedText = await voteBtn.textContent();
-      expect(updatedText).toBeTruthy();
-    }
+    // Navigate to a plugin detail page (vote buttons are only on detail pages)
+    await page.goto("/");
+    const pluginLink = page.locator("a[href^='/plugins/']").first();
+    await expect(pluginLink).toBeVisible();
+    await pluginLink.click();
+    await expect(page).toHaveURL(/\/plugins\//);
+
+    // Find the upvote button on the detail page
+    const voteBtn = page.locator("button[hx-post*='vote']").first();
+    await expect(voteBtn).toBeVisible();
+
+    // Wait for HTMX to fully process the button (prevents race under parallel workers)
+    await page.waitForFunction(() => {
+      const btn = document.querySelector("button[hx-post*='vote']");
+      return btn && (window as any).htmx && (window as any).htmx.closest(btn, "[hx-post]");
+    });
+
+    // Get initial score
+    const scoreEl = page.locator("[id^='vote-'] span.text-sm").first();
+    const initialScore = await scoreEl.textContent();
+
+    // Click vote and wait for HTMX POST response
+    const [voteResp] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/vote") && r.request().method() === "POST",
+      ),
+      voteBtn.click(),
+    ]);
+    expect(voteResp.status()).toBeLessThan(500);
+
+    // After HTMX swap, the vote widget should still be present
+    await expect(page.locator("button[hx-post*='vote']").first()).toBeVisible();
+    // Score should have changed (upvote toggles 0→1 or 1→0)
+    const newScore = await page.locator("[id^='vote-'] span.text-sm").first().textContent();
+    expect(newScore).not.toBe(initialScore);
   });
 });

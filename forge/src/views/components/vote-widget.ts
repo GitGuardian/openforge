@@ -1,5 +1,9 @@
 import { html } from "hono/html";
 
+export function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 export function voteWidget(
   pluginName: string,
   score: number,
@@ -11,13 +15,14 @@ export function voteWidget(
   const upValue = upActive ? 0 : 1;
   const downValue = downActive ? 0 : -1;
   const context = showDownvote ? "detail" : "card";
+  const slug = slugify(pluginName);
 
   return html`
-    <div id="vote-${pluginName}" class="flex items-center gap-1">
+    <div id="vote-${slug}" class="flex items-center gap-1">
       <button
         hx-post="/plugins/${pluginName}/vote"
         hx-vals='{"value":${upValue},"context":"${context}"}'
-        hx-target="#vote-${pluginName}"
+        hx-target="#vote-${slug}"
         hx-swap="outerHTML"
         class="p-1 rounded hover:bg-gray-100 ${upActive ? "text-orange-500" : "text-gray-400"}"
         title="Upvote"
@@ -30,7 +35,7 @@ export function voteWidget(
             <button
               hx-post="/plugins/${pluginName}/vote"
               hx-vals='{"value":${downValue},"context":"${context}"}'
-              hx-target="#vote-${pluginName}"
+              hx-target="#vote-${slug}"
               hx-swap="outerHTML"
               class="p-1 rounded hover:bg-gray-100 ${downActive ? "text-blue-500" : "text-gray-400"}"
               title="Downvote"

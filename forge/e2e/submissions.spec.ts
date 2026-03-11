@@ -21,14 +21,17 @@ test.describe("Submissions E2E", () => {
     }
 
     // Submit — HTMX hx-post swaps result into #submit-result (no page redirect)
-    await page.click("button[type='submit']");
-
-    // Wait for the submission response — either success message appears
-    // or the page content changes after HTMX swap
-    await page.waitForTimeout(3000);
-    const pageContent = await page.content();
-    // The form should have been submitted (page still on /submit)
-    expect(pageContent).toBeTruthy();
+    const submitBtn = page.locator("form[hx-post*='/api/submissions'] button[type='submit']");
+    const [resp] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/api/submissions") &&
+          r.request().method() === "POST",
+      ),
+      submitBtn.click(),
+    ]);
+    expect(resp.ok()).toBe(true);
+    await expect(page.locator("#submit-result")).toBeVisible();
   });
 
   test("my submissions page lists submissions", async ({ page, request }) => {

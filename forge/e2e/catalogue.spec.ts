@@ -25,26 +25,39 @@ test.describe("Catalogue E2E", () => {
     await page.goto("/");
 
     const searchInput = page.locator("input[name='q']");
-    if (await searchInput.isVisible()) {
-      await searchInput.fill("zzz_nonexistent_zzz");
-      // Wait for HTMX swap (debounced 300ms + network)
-      await page.waitForTimeout(1000);
-      const listArea = page.locator("#plugin-list");
-      await expect(listArea).toContainText("No plugins found");
-    }
+    await expect(searchInput).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/partials/plugin-list") &&
+          r.request().method() === "GET",
+      ),
+      searchInput.fill("zzz_nonexistent_zzz"),
+    ]);
+
+    await expect(page.locator("#plugin-list")).toContainText("No plugins found");
   });
 
   test("sort dropdown changes results", async ({ page }) => {
     await page.goto("/");
 
     const sortSelect = page.locator("select[name='sort']");
-    if (await sortSelect.isVisible()) {
-      await sortSelect.selectOption("newest");
-      // Wait for HTMX swap
-      await page.waitForTimeout(1000);
-      // Page should still be functional
-      await expect(page.locator("#plugin-list")).toBeVisible();
-    }
+    await expect(sortSelect).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/partials/plugin-list") &&
+          r.request().method() === "GET",
+      ),
+      sortSelect.selectOption("newest"),
+    ]);
+
+    await expect(page.locator("#plugin-list")).toBeVisible();
+    await expect(page.locator("#plugin-list")).not.toContainText(
+      "Internal Server Error",
+    );
   });
 
   test("plugin detail page renders without errors", async ({ page }) => {
