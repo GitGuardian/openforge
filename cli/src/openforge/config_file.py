@@ -68,8 +68,12 @@ def _read_toml(path: Path) -> dict[str, Any]:
     """Read a TOML file and return its contents, or an empty dict on failure."""
     if not path.is_file():
         return {}
-    with open(path, "rb") as f:
-        return cast(dict[str, Any], tomllib.load(f))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    try:
+        with open(path, "rb") as f:
+            return cast(dict[str, Any], tomllib.load(f))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    except tomllib.TOMLDecodeError as exc:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        msg = f"Invalid TOML in {path}: {exc}"
+        raise ValueError(msg) from exc
 
 
 def _get_nested(data: dict[str, Any], dotted_key: str) -> str | None:

@@ -206,3 +206,12 @@ def test_set_config_value_supabase_url(tmp_path: Path) -> None:
     set_config_value("supabase.url", "http://my-supabase:54321", user_config_dir=user_dir)
     content = (user_dir / "config.toml").read_text()
     assert "http://my-supabase:54321" in content
+
+
+def test_malformed_toml_gives_clear_error(tmp_path: Path) -> None:
+    """Corrupt TOML should raise ValueError, not raw TOMLDecodeError."""
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+    (user_dir / "config.toml").write_text("[invalid toml", encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid TOML"):
+        load_config(project_dir=tmp_path, user_config_dir=user_dir)
