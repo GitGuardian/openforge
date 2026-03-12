@@ -80,8 +80,12 @@ def _store_token(
         "email": email,
         "user_id": user_id,
     }
-    token_file.write_text(json.dumps(token_data), encoding="utf-8")
-    os.chmod(token_file, 0o600)
+    # Atomic write: set permissions on temp file BEFORE rename so the
+    # token is never visible with default (world-readable) permissions.
+    tmp_file = token_file.with_suffix(".tmp")
+    tmp_file.write_text(json.dumps(token_data), encoding="utf-8")
+    os.chmod(tmp_file, 0o600)
+    os.replace(tmp_file, token_file)
 
 
 def _read_token() -> dict[str, str] | None:
@@ -94,8 +98,22 @@ def _read_token() -> dict[str, str] | None:
         if isinstance(data, dict) and "access_token" in data:
             typed_data = cast(dict[str, Any], data)
             return {str(k): str(v) for k, v in typed_data.items()}
-    except (json.JSONDecodeError, OSError):
-        pass
+    except json.JSONDecodeError:
+        import sys
+
+        print(
+            f"Warning: {token_file} contains invalid JSON. "
+            "Run 'openforge auth login' to re-authenticate.",
+            file=sys.stderr,
+        )
+    except OSError as exc:
+        import sys
+
+        print(
+            f"Warning: Could not read {token_file}: {exc}. "
+            "Run 'openforge auth login' to re-authenticate.",
+            file=sys.stderr,
+        )
     return None
 
 

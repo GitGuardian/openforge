@@ -170,6 +170,72 @@ def test_read_token_returns_none_on_corrupt_json(tmp_path: Path) -> None:
         assert result is None
 
 
+def test_save_token_atomic_write(tmp_path: Path) -> None:
+    """Token file should be written atomically via tmp+rename, never world-readable."""
+    import os
+
+    from openforge.auth import _store_token
+
+    token_dir = tmp_path / "config"
+    token_dir.mkdir()
+
+    with patch("openforge.auth._get_token_dir", return_value=token_dir):
+        _store_token(
+            access_token="at",
+            refresh_token="rt",
+            email="a@b.com",
+            user_id="u1",
+        )
+
+    token_file = token_dir / "token.json"
+    # File should exist with correct permissions
+    assert token_file.exists()
+    mode = os.stat(token_file).st_mode & 0o777
+    assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
+    # No leftover .tmp file
+    assert not (token_dir / "token.json.tmp").exists()
+    # Verify content
+    data = json.loads(token_file.read_text())
+    assert data["access_token"] == "at"
+
+
+def test_read_token_warns_on_corrupt_json(tmp_path: Path, capsys: object) -> None:
+    """Corrupt token.json should print warning to stderr, not silently return None."""
+
+    from openforge.auth import _read_token
+
+    token_dir = tmp_path / "config"
+    token_dir.mkdir(parents=True)
+    (token_dir / "token.json").write_text("{invalid json", encoding="utf-8")
+
+    with patch("openforge.auth._get_token_dir", return_value=token_dir):
+        result = _read_token()
+
+    assert result is None
+    captured = capsys.readouterr()  # type: ignore[union-attr]
+    assert "invalid JSON" in captured.err
+
+
+def test_read_token_warns_on_os_error(tmp_path: Path, capsys: object) -> None:
+    """_read_token should warn on OSError, not silently return None."""
+    from openforge.auth import _read_token
+
+    token_dir = tmp_path / "config"
+    token_dir.mkdir(parents=True)
+    token_file = token_dir / "token.json"
+    token_file.write_text('{"access_token": "x"}', encoding="utf-8")
+
+    with (
+        patch("openforge.auth._get_token_dir", return_value=token_dir),
+        patch("openforge.auth.Path.read_text", side_effect=OSError("permission denied")),
+    ):
+        result = _read_token()
+
+    assert result is None
+    captured = capsys.readouterr()  # type: ignore[union-attr]
+    assert "Could not read" in captured.err
+
+
 def test_read_token_returns_none_when_missing_access_token(tmp_path: Path) -> None:
     """_read_token returns None when token file has no access_token key."""
     from openforge.auth import _read_token
