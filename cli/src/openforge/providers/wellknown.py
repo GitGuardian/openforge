@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 from openforge.providers.base import FetchResult
 from openforge.types import Source, SourceType
+from openforge.validation import validate_name
 
 _MAX_FILE_SIZE = 1_000_000  # 1MB per file
 
@@ -36,7 +37,7 @@ class WellKnownProvider:
         index_url = f"{base_url}/.well-known/skills/index.json"
         try:
             raw = _http_get(index_url)
-        except (URLError, OSError, Exception) as exc:
+        except (URLError, OSError, json.JSONDecodeError) as exc:
             msg = f"could not fetch well-known index from {index_url}: {exc}"
             raise ValueError(msg) from exc
 
@@ -51,11 +52,18 @@ class WellKnownProvider:
 
         for skill in skills_data:
             name = str(skill.get("name", ""))
+            validate_name(name)
             files = cast(list[str], skill.get("files", ["SKILL.md"]))
             skill_dir = dest / name
             skill_dir.mkdir(parents=True, exist_ok=True)
 
             for fname in files:
+                # Path traversal protection for file names
+                file_dest = (skill_dir / fname).resolve()
+                if not str(file_dest).startswith(str(skill_dir.resolve())):
+                    msg = f"Path traversal detected in file name: {fname}"
+                    raise ValueError(msg)
+
                 file_url = f"{base_url}/.well-known/skills/{name}/{fname}"
                 try:
                     content = _http_get(file_url)
@@ -63,7 +71,7 @@ class WellKnownProvider:
                     if fname == "SKILL.md":
                         raise  # SKILL.md is required
                     continue
-                (skill_dir / fname).write_text(content)
+                file_dest.write_text(content)
                 hasher.update(content.encode())
 
         return FetchResult(sha=hasher.hexdigest()[:12], content_root=dest)

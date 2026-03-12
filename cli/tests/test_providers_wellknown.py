@@ -62,7 +62,9 @@ def test_wellknown_fetch(mock_get: MagicMock, tmp_path: Path) -> None:
 
 @patch("openforge.providers.wellknown._http_get")
 def test_wellknown_no_index(mock_get: MagicMock, tmp_path: Path) -> None:
-    mock_get.side_effect = Exception("404")
+    from urllib.error import URLError
+
+    mock_get.side_effect = URLError("404")
     p = WellKnownProvider()
     s = Source(source_type=SourceType.WELL_KNOWN, url="https://example.com")
     with pytest.raises(ValueError, match="could not fetch"):
@@ -93,3 +95,43 @@ def test_wellknown_fetch_content_hash_deterministic(mock_get: MagicMock, tmp_pat
     r2 = p.fetch(s, tmp_path2)
 
     assert r1.sha == r2.sha
+
+
+@patch("openforge.providers.wellknown._http_get")
+def test_wellknown_rejects_path_traversal_skill_name(mock_get: MagicMock, tmp_path: Path) -> None:
+    """Skill names with .. or / should be rejected."""
+    malicious_index = {"skills": [{"name": "../../etc/passwd", "files": ["SKILL.md"]}]}
+    mock_get.return_value = json.dumps(malicious_index)
+
+    p = WellKnownProvider()
+    s = Source(source_type=SourceType.WELL_KNOWN, url="https://example.com")
+    with pytest.raises(ValueError, match="[Ii]nvalid|traversal"):
+        p.fetch(s, tmp_path)
+
+
+@patch("openforge.providers.wellknown._http_get")
+def test_wellknown_rejects_path_traversal_file_name(mock_get: MagicMock, tmp_path: Path) -> None:
+    """File names with .. should be rejected."""
+    malicious_index = {"skills": [{"name": "ok-skill", "files": ["../../etc/passwd"]}]}
+
+    def side_effect(url: str) -> str:
+        if "index.json" in url:
+            return json.dumps(malicious_index)
+        return "malicious content"
+
+    mock_get.side_effect = side_effect
+
+    p = WellKnownProvider()
+    s = Source(source_type=SourceType.WELL_KNOWN, url="https://example.com")
+    with pytest.raises(ValueError, match="[Pp]ath traversal"):
+        p.fetch(s, tmp_path)
+
+
+@patch("openforge.providers.wellknown._http_get")
+def test_wellknown_propagates_programming_errors(mock_get: MagicMock, tmp_path: Path) -> None:
+    """TypeError should propagate, not be swallowed as a network error."""
+    mock_get.side_effect = TypeError("bug in code")
+    p = WellKnownProvider()
+    s = Source(source_type=SourceType.WELL_KNOWN, url="https://example.com")
+    with pytest.raises(TypeError, match="bug in code"):
+        p.fetch(s, tmp_path)
