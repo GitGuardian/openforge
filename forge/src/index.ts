@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "hono/bun";
 import { csrf } from "hono/csrf";
 import { logger } from "hono/logger";
@@ -45,6 +46,9 @@ app.route("/", pageRoutes);
 
 // Global error handler
 app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return err.getResponse();
+  }
   console.error("Unhandled error:", err);
   if (err instanceof Error && err.message.includes("LOGIN_REQUIRED")) {
     return c.redirect("/auth/login");
