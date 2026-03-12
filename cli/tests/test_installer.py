@@ -262,19 +262,20 @@ def test_install_to_all_agents_target_agent(tmp_path: Path) -> None:
 
 
 def test_install_to_all_agents_target_agent_not_found(tmp_path: Path) -> None:
-    """install_to_all_agents with unknown target_agent returns empty."""
+    """install_to_all_agents with unknown target_agent raises ValueError."""
     skills = [SkillInfo(name="helper", path="/fake")]
 
-    with patch("openforge.installer.get_agent", return_value=None):
-        installed = install_to_all_agents(
+    with (
+        patch("openforge.installer.get_agent", return_value=None),
+        pytest.raises(ValueError, match="Unknown agent"),
+    ):
+        install_to_all_agents(
             skills=skills,
             project_dir=tmp_path,
             content_type=ContentType.SKILL,
             is_global=False,
             target_agent="nonexistent",
         )
-
-    assert installed == []
 
 
 def test_resolve_skills_dir_global_raises_when_not_supported(tmp_path: Path) -> None:

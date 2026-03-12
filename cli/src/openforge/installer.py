@@ -126,7 +126,11 @@ def install_to_all_agents(
     if target_agent is not None:
         agent = get_agent(target_agent)
         if agent is None:
-            return []
+            msg = (
+                f"Unknown agent: {target_agent!r}. "
+                "Run 'openforge agents list' to see available agents."
+            )
+            raise ValueError(msg)
         agents = [agent]
     else:
         agents = detect_agents()
