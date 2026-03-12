@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from openforge.lock import (
     _dict_to_entry,
     _entry_to_dict,
@@ -252,3 +254,11 @@ def test_lock_write_read_local_source(tmp_path: Path) -> None:
     loaded = read_lock(lock_path)
     assert loaded.entries["my-plugin"].source_type == SourceType.LOCAL
     assert loaded.entries["my-plugin"] == entry
+
+
+def test_corrupt_lock_file_gives_clear_error(tmp_path: Path) -> None:
+    """Corrupt JSON lock file should raise ValueError with instructions."""
+    lock_path = tmp_path / ".openforge-lock.json"
+    lock_path.write_text("{corrupt json", encoding="utf-8")
+    with pytest.raises(ValueError, match="Corrupt lock file"):
+        read_lock(lock_path)

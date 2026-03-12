@@ -53,7 +53,11 @@ def read_lock(path: Path) -> LockFile:
     if not path.exists():
         return LockFile()
 
-    raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        msg = f"Corrupt lock file at {path}. Delete it and re-install: {exc}"
+        raise ValueError(msg) from exc
     entries: dict[str, LockEntry] = {
         name: _dict_to_entry(entry_data) for name, entry_data in raw.get("entries", {}).items()
     }
