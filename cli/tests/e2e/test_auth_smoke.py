@@ -19,10 +19,7 @@ import httpx
 import pytest
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "http://127.0.0.1:54321")
-SUPABASE_ANON_KEY = os.environ.get(
-    "SUPABASE_ANON_KEY",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
-)
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 CLI_DIR = Path(__file__).parent.parent.parent  # cli/
 
 
@@ -70,8 +67,8 @@ def _run_cli(
 
 
 @pytest.mark.skipif(
-    not _supabase_available(),
-    reason="Local Supabase not running — start with 'supabase start'",
+    not _supabase_available() or not SUPABASE_ANON_KEY,
+    reason="Local Supabase not running or SUPABASE_ANON_KEY not set",
 )
 class TestAuthSmoke:
     """Subprocess smoke tests for auth login / logout / status."""
