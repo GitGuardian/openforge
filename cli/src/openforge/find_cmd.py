@@ -76,8 +76,8 @@ def find_command(
     if search_remote:
         try:
             remote_results = search_forge(query)
-        except Exception:  # noqa: BLE001
-            _console.print("[yellow]Remote search failed. Check your connection.[/yellow]")
+        except (OSError, ValueError) as exc:
+            _console.print(f"[yellow]Remote search failed: {exc}[/yellow]")
 
     total = len(local_matches) + len(remote_results)
 

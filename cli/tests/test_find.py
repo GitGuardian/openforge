@@ -152,8 +152,20 @@ def test_find_remote_error_handled(tmp_path: Path) -> None:
 
     with (
         patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.search_forge", side_effect=Exception("connection refused")),
+        patch("openforge.find_cmd.search_forge", side_effect=OSError("connection refused")),
     ):
         result = runner.invoke(test_app, ["find", "anything", "--remote"])
         assert result.exit_code == 0
         assert "failed" in result.output.lower() or "error" in result.output.lower()
+
+
+def test_find_remote_propagates_programming_errors(tmp_path: Path) -> None:
+    """TypeError should propagate, not be caught as a connection error."""
+    test_app = _build_app()
+
+    with (
+        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
+        patch("openforge.find_cmd.search_forge", side_effect=TypeError("bug in code")),
+    ):
+        result = runner.invoke(test_app, ["find", "anything", "--remote"])
+        assert result.exit_code != 0
