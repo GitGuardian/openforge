@@ -32,16 +32,13 @@ test.describe("HTMX Interactions E2E", () => {
     await expect(pluginLink).toBeVisible();
     await pluginLink.click();
     await expect(page).toHaveURL(/\/plugins\//);
+    // Wait for the page and all scripts (HTMX, EasyMDE) to fully load so
+    // Playwright's network interceptor is ready before we trigger the vote XHR.
+    await page.waitForLoadState("networkidle");
 
     // Find the upvote button on the detail page
     const voteBtn = page.locator("button[hx-post*='vote']").first();
     await expect(voteBtn).toBeVisible();
-
-    // Wait for HTMX to fully process the button (prevents race under parallel workers)
-    await page.waitForFunction(() => {
-      const btn = document.querySelector("button[hx-post*='vote']");
-      return btn && (window as any).htmx && (window as any).htmx.closest(btn, "[hx-post]");
-    });
 
     // Get initial score
     const scoreEl = page.locator("[id^='vote-'] span.text-sm").first();
