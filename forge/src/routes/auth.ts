@@ -77,9 +77,18 @@ function authLayout(title: string, content: string) {
     </html>`;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function formCard(title: string, body: string, error?: string) {
   const errorBanner = error
-    ? `<div class="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">${error}</div>`
+    ? `<div class="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">${escapeHtml(error)}</div>`
     : "";
 
   return `
@@ -223,8 +232,10 @@ authRoutes.post("/auth/login", async (c) => {
   });
 
   if (error || !data.session) {
-    const msg = encodeURIComponent(error?.message ?? "Invalid credentials");
-    return c.redirect(`/auth/login?error=${msg}`);
+    if (error) console.error("Auth login error:", error.message);
+    return c.redirect(
+      `/auth/login?error=${encodeURIComponent("Invalid email or password. Please try again.")}`,
+    );
   }
 
   setAuthCookies(c, data.session);
@@ -269,8 +280,10 @@ authRoutes.post("/auth/signup", async (c) => {
   });
 
   if (error) {
-    const msg = encodeURIComponent(error.message);
-    return c.redirect(`/auth/signup?error=${msg}`);
+    console.error("Auth signup error:", error.message);
+    return c.redirect(
+      `/auth/signup?error=${encodeURIComponent("Signup failed. Please try again.")}`,
+    );
   }
 
   if (data.session) {
@@ -314,8 +327,10 @@ authRoutes.post("/auth/magic-link", async (c) => {
   });
 
   if (error) {
-    const msg = encodeURIComponent(error.message);
-    return c.redirect(`/auth/magic-link?error=${msg}`);
+    console.error("Auth magic-link error:", error.message);
+    return c.redirect(
+      `/auth/magic-link?error=${encodeURIComponent("Could not send magic link. Please try again.")}`,
+    );
   }
 
   return c.redirect("/auth/magic-link?success=1");
@@ -331,10 +346,10 @@ authRoutes.get("/auth/callback", async (c) => {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error || !data.session) {
-      const msg = encodeURIComponent(
-        error?.message ?? "Could not exchange auth code",
+      if (error) console.error("Auth callback error:", error.message);
+      return c.redirect(
+        `/auth/login?error=${encodeURIComponent("Authentication failed. Please try again.")}`,
       );
-      return c.redirect(`/auth/login?error=${msg}`);
     }
     setAuthCookies(c, data.session);
     return c.redirect("/");
@@ -354,10 +369,10 @@ authRoutes.get("/auth/callback", async (c) => {
   });
 
   if (error || !data.session) {
-    const msg = encodeURIComponent(
-      error?.message ?? "Could not verify magic link",
+    if (error) console.error("Auth verify error:", error.message);
+    return c.redirect(
+      `/auth/login?error=${encodeURIComponent("Authentication failed. Please try again.")}`,
     );
-    return c.redirect(`/auth/login?error=${msg}`);
   }
 
   setAuthCookies(c, data.session);

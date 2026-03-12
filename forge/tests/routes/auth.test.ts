@@ -179,7 +179,7 @@ describe("POST /auth/login", () => {
       redirect: "manual",
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toContain("error=Invalid");
+    expect(res.headers.get("Location")).toContain("error=");
   });
 
   test("sets auth cookies and redirects to / on success", async () => {
@@ -328,7 +328,8 @@ describe("POST /auth/signup", () => {
       redirect: "manual",
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toContain("User%20already%20exists");
+    expect(res.headers.get("Location")).toContain("error=");
+    expect(res.headers.get("Location")).not.toContain("provider");
   });
 });
 
@@ -401,7 +402,7 @@ describe("POST /auth/magic-link", () => {
       redirect: "manual",
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toContain("Rate%20limited");
+    expect(res.headers.get("Location")).toContain("error=");
   });
 });
 
@@ -432,7 +433,7 @@ describe("GET /auth/callback", () => {
       { redirect: "manual" },
     );
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toContain("Expired%20link");
+    expect(res.headers.get("Location")).toContain("error=");
   });
 
   test("sets cookies and redirects on success", async () => {
@@ -497,7 +498,7 @@ describe("GET /auth/callback — PKCE code exchange", () => {
       redirect: "manual",
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toContain("Code%20expired");
+    expect(res.headers.get("Location")).toContain("error=");
   });
 
   test("prefers code param over token_hash param", async () => {
@@ -587,6 +588,129 @@ describe("Auth cookie secure flag", () => {
     expect(cookies.length).toBeGreaterThan(0);
     const hasSecure = cookies.some((c: string) => c.includes("Secure"));
     expect(hasSecure).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: XSS protection in error display
+// ---------------------------------------------------------------------------
+
+describe("XSS protection in auth error display", () => {
+  test("escapes HTML in error query param on login page", async () => {
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/login?error=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+    );
+    const html = await res.text();
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  test("escapes HTML in error query param on signup page", async () => {
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/signup?error=%3Cimg%20onerror%3Dalert(1)%3E",
+    );
+    const html = await res.text();
+    expect(html).not.toContain('<img onerror=alert(1)>');
+    expect(html).toContain("&lt;img");
+  });
+
+  test("escapes HTML in error query param on magic-link page", async () => {
+    const app = createAuthApp();
+    const res = await app.request(
+      '/auth/magic-link?error=%3Cscript%3Ealert(1)%3C%2Fscript%3E',
+    );
+    const html = await res.text();
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Supabase error sanitization
+// ---------------------------------------------------------------------------
+
+describe("Supabase error sanitization", () => {
+  test("does not forward raw Supabase error on login failure", async () => {
+    mockSignInResult = {
+      data: { session: null },
+      error: { message: "Supabase internal: rate limit exceeded for 192.168.1.1" },
+    };
+    const app = createAuthApp();
+    const res = await app.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=wrong",
+      redirect: "manual",
+    });
+    const location = res.headers.get("Location") || "";
+    expect(location).not.toContain("Supabase");
+    expect(location).not.toContain("192.168");
+    expect(location).toContain("error=");
+  });
+
+  test("does not forward raw Supabase error on signup failure", async () => {
+    mockSignUpResult = {
+      data: { session: null },
+      error: { message: "User already registered with provider X" },
+    };
+    const app = createAuthApp();
+    const res = await app.request("/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=longenough&confirm_password=longenough",
+      redirect: "manual",
+    });
+    const location = res.headers.get("Location") || "";
+    expect(location).not.toContain("provider");
+    expect(location).toContain("error=");
+  });
+
+  test("does not forward raw Supabase error on magic-link failure", async () => {
+    mockOtpResult = { error: { message: "Supabase GoTrue: email send failed" } };
+    const app = createAuthApp();
+    const res = await app.request("/auth/magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com",
+      redirect: "manual",
+    });
+    const location = res.headers.get("Location") || "";
+    expect(location).not.toContain("Supabase");
+    expect(location).not.toContain("GoTrue");
+    expect(location).toContain("error=");
+  });
+
+  test("does not forward raw Supabase error on callback failure", async () => {
+    mockExchangeResult = {
+      data: { session: null },
+      error: { message: "Supabase auth: token expired at 2026-01-01" },
+    };
+    const app = createAuthApp();
+    const res = await app.request("/auth/callback?code=expired-code", {
+      redirect: "manual",
+    });
+    const location = res.headers.get("Location") || "";
+    expect(location).not.toContain("Supabase");
+    expect(location).not.toContain("2026");
+    expect(location).toContain("error=");
+  });
+
+  test("does not forward raw Supabase error on verify OTP failure", async () => {
+    mockVerifyResult = {
+      data: { session: null },
+      error: { message: "Supabase GoTrue: OTP expired" },
+    };
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/callback?token_hash=abc&type=magiclink",
+      { redirect: "manual" },
+    );
+    const location = res.headers.get("Location") || "";
+    expect(location).not.toContain("Supabase");
+    expect(location).not.toContain("GoTrue");
+    expect(location).toContain("error=");
   });
 });
 
