@@ -80,5 +80,9 @@ class ForgeProvider:
             msg = f"Plugin '{plugin_name}' has no source URL"
             raise ValueError(msg)
 
+        if not git_url.startswith("https://"):
+            msg = f"Plugin '{plugin_name}' has non-HTTPS source URL: {git_url}"
+            raise ValueError(msg)
+
         git_source = Source(source_type=SourceType.GITHUB, url=git_url)
         return GitProvider().fetch(git_source, dest)

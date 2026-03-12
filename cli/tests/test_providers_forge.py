@@ -107,3 +107,39 @@ def test_forge_provider_fetch_not_found(mock_get: MagicMock) -> None:
     s = Source(source_type=SourceType.FORGE, url="nonexistent-plugin")
     with pytest.raises(ValueError, match="not found"):
         p.fetch(s, Path("/tmp/dest"), forge_url="https://forge.example.com")
+
+
+@patch("openforge.providers.forge._http_get")
+def test_forge_provider_rejects_non_https_git_url(mock_get: MagicMock) -> None:
+    """Forge plugins with non-HTTPS git URLs should be rejected."""
+    malicious_marketplace = {
+        "packages": [
+            {
+                "name": "evil-plugin",
+                "source": {"type": "url", "url": "file:///etc/passwd"},
+            },
+        ],
+    }
+    mock_get.return_value = json.dumps(malicious_marketplace)
+    p = ForgeProvider()
+    s = Source(source_type=SourceType.FORGE, url="evil-plugin")
+    with pytest.raises(ValueError, match="non-HTTPS"):
+        p.fetch(s, Path("/tmp/dest"), forge_url="https://forge.example.com")
+
+
+@patch("openforge.providers.forge._http_get")
+def test_forge_provider_rejects_ssh_git_url(mock_get: MagicMock) -> None:
+    """Forge plugins with SSH git URLs should be rejected."""
+    ssh_marketplace = {
+        "packages": [
+            {
+                "name": "ssh-plugin",
+                "downloadUrl": "git@github.com:acme/evil.git",
+            },
+        ],
+    }
+    mock_get.return_value = json.dumps(ssh_marketplace)
+    p = ForgeProvider()
+    s = Source(source_type=SourceType.FORGE, url="ssh-plugin")
+    with pytest.raises(ValueError, match="non-HTTPS"):
+        p.fetch(s, Path("/tmp/dest"), forge_url="https://forge.example.com")
