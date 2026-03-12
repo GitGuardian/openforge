@@ -66,10 +66,7 @@ def test_find_by_name(tmp_path: Path) -> None:
     test_app = _build_app()
     _make_lock(tmp_path)
 
-    with (
-        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
-    ):
+    with patch("openforge.find_cmd.get_project_dir", return_value=tmp_path):
         result = runner.invoke(test_app, ["find", "lint"])
         assert result.exit_code == 0
         assert "lint" in result.output
@@ -80,10 +77,7 @@ def test_find_by_skill_name(tmp_path: Path) -> None:
     test_app = _build_app()
     _make_lock(tmp_path)
 
-    with (
-        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
-    ):
+    with patch("openforge.find_cmd.get_project_dir", return_value=tmp_path):
         result = runner.invoke(test_app, ["find", "format"])
         assert result.exit_code == 0
         assert "format" in result.output
@@ -92,10 +86,7 @@ def test_find_by_skill_name(tmp_path: Path) -> None:
 def test_find_no_results(tmp_path: Path) -> None:
     test_app = _build_app()
 
-    with (
-        patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
-    ):
+    with patch("openforge.find_cmd.get_project_dir", return_value=tmp_path):
         result = runner.invoke(test_app, ["find", "nonexistent"])
         assert result.exit_code == 0
         assert "No results found." in result.output
@@ -110,7 +101,6 @@ def test_find_remote(tmp_path: Path) -> None:
 
     with (
         patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
         patch("openforge.find_cmd.search_forge") as mock_search,
     ):
         mock_search.return_value = [
@@ -128,7 +118,6 @@ def test_find_remote_no_results(tmp_path: Path) -> None:
 
     with (
         patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
         patch("openforge.find_cmd.search_forge") as mock_search,
     ):
         mock_search.return_value = []
@@ -144,7 +133,6 @@ def test_find_all_combines_local_and_remote(tmp_path: Path) -> None:
 
     with (
         patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
         patch("openforge.find_cmd.search_forge") as mock_search,
     ):
         mock_search.return_value = [
@@ -164,7 +152,6 @@ def test_find_remote_error_handled(tmp_path: Path) -> None:
 
     with (
         patch("openforge.find_cmd.get_project_dir", return_value=tmp_path),
-        patch("openforge.find_cmd.send_event"),
         patch("openforge.find_cmd.search_forge", side_effect=Exception("connection refused")),
     ):
         result = runner.invoke(test_app, ["find", "anything", "--remote"])

@@ -8,7 +8,8 @@ import {
   signInAndGetToken,
   promoteUserToCurator,
 } from "./helpers";
-import { cliLogin, cliPublish } from "./cli-helper";
+import { cliLogin, cliPublish, runCLI } from "./cli-helper";
+import { SERVICE_ROLE_KEY, SUPABASE_URL } from "./helpers";
 
 test.describe("Cross-Component E2E", () => {
   let tmpXdg: string;
@@ -112,5 +113,51 @@ test.describe("Cross-Component E2E", () => {
     const marketplace = await marketplaceRes.json();
     expect(marketplace).toHaveProperty("packages");
     expect(Array.isArray(marketplace.packages)).toBe(true);
+  });
+
+  test("CLI add → Forge telemetry → install_events row persisted", async ({
+    request,
+  }) => {
+    // Use tenfourty/cc-marketplace — small, public repo with skills
+    const pluginShorthand = "tenfourty/cc-marketplace";
+
+    // Run CLI `openforge add <shorthand>` with telemetry forced on
+    // Unset GITHUB_TOKEN to avoid auth interference with public repo cloning
+    const result = runCLI(
+      ["add", pluginShorthand, "--agent", "claude-code"],
+      {
+        XDG_CONFIG_HOME: tmpXdg,
+        OPENFORGE_TELEMETRY_FORCE: "1",
+        GITHUB_TOKEN: "",
+        GH_TOKEN: "",
+      },
+    );
+    // CLI add should succeed (exit 0)
+    expect(result.exitCode).toBe(0);
+
+    // Poll Supabase for the install_events row (up to 10s, every 500ms)
+    const queryUrl = `${SUPABASE_URL}/rest/v1/install_events?plugin_name=eq.${encodeURIComponent(pluginShorthand)}&order=created_at.desc&limit=1`;
+    const queryHeaders = {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+    };
+
+    let rows: Array<Record<string, unknown>> = [];
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const queryRes = await request.fetch(queryUrl, { headers: queryHeaders });
+      expect(queryRes.ok()).toBe(true);
+      rows = await queryRes.json();
+      if (rows.length > 0) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+
+    const row = rows[0];
+    expect(row.plugin_name).toBe(pluginShorthand);
+    expect(row.source).toBe("cli");
+    expect(row.agents).toContain("claude-code");
+    expect(typeof row.cli_version).toBe("string");
+    expect(row.cli_version.length).toBeGreaterThan(0);
   });
 });

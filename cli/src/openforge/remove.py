@@ -12,7 +12,6 @@ from openforge.agents.registry import get_agent
 from openforge.cli import get_project_dir
 from openforge.installer import remove_canonical_storage, remove_skills_from_agent
 from openforge.lock import lock_file_path, read_lock, remove_lock_entry
-from openforge.telemetry import send_event
 from openforge.types import ContentType, LockEntry
 
 _console = Console()
@@ -118,15 +117,6 @@ def remove_command(
 
     # Remove lock entry
     remove_lock_entry(lock_path, name)
-
-    # Telemetry
-    send_event(
-        "remove",
-        {
-            "name": name,
-            "content_type": entry.type.value,
-        },
-    )
 
     # Print summary
     _console.print(f"[green]Removed {entry.type.value} {name!r}.[/green]")

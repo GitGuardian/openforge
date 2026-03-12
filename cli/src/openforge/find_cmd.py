@@ -10,7 +10,6 @@ from rich.table import Table
 from openforge.cli import get_project_dir
 from openforge.lock import lock_file_path, read_lock
 from openforge.providers.forge import search_forge
-from openforge.telemetry import send_event
 from openforge.types import LockEntry
 
 _console = Console()
@@ -81,7 +80,6 @@ def find_command(
             _console.print("[yellow]Remote search failed. Check your connection.[/yellow]")
 
     total = len(local_matches) + len(remote_results)
-    send_event("find", {"results_count": total})
 
     if total == 0:
         _console.print("No results found.")

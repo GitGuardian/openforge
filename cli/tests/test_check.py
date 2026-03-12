@@ -128,10 +128,7 @@ def test_check_command_specific_entry(mock_ls_remote: object, tmp_path: object) 
     app = typer.Typer()
     app.command()(check_command)
 
-    with (
-        patch("openforge.check.get_project_dir", return_value=p),
-        patch("openforge.check.send_event"),
-    ):
+    with patch("openforge.check.get_project_dir", return_value=p):
         result = _runner.invoke(app, ["acme/skills"])
     assert result.exit_code == 0
     assert "up to date" in result.output.lower()

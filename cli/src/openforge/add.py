@@ -24,7 +24,7 @@ from openforge.providers.git import GitProvider
 from openforge.providers.local import LocalProvider
 from openforge.providers.source_parser import parse_source
 from openforge.providers.wellknown import WellKnownProvider
-from openforge.telemetry import send_event
+from openforge.telemetry import send_install_event
 from openforge.types import (
     ContentType,
     LockEntry,
@@ -318,14 +318,10 @@ def add_command(
         add_lock_entry(lock_path, lock_name, entry)
 
         # Telemetry
-        send_event(
-            "add",
-            {
-                "source": parsed.shorthand,
-                "content_type": detected.content_type.value,
-                "skills": skill_names,
-                "agents": installed_agents,
-            },
+        send_install_event(
+            plugin_name=parsed.shorthand,
+            agents=list(installed_agents),
+            skill_name=skill_names[0] if len(skill_names) == 1 else None,
         )
 
         # Print summary

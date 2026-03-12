@@ -15,7 +15,6 @@ from openforge.installer import create_canonical_storage, install_to_all_agents
 from openforge.lock import add_lock_entry, lock_file_path, read_lock
 from openforge.plugins import detect_content
 from openforge.providers.source_parser import parse_source
-from openforge.telemetry import send_event
 from openforge.types import ContentType, LockEntry, SkillInfo
 
 _console = Console()
@@ -139,5 +138,4 @@ def update_command(
         _reinstall_entry(entry_name, entry, project_dir, is_global)
         _console.print(f"[green]Updated {entry_name}[/green]")
 
-    send_event("update", {"entries_updated": len(outdated)})
     _console.print(f"\n[green]Updated {len(outdated)} entries.[/green]")

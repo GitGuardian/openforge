@@ -46,7 +46,7 @@ function toDisplayName(name: string): string {
 
 const VALID_SOURCES = new Set(["cli", "hook-activate", "marketplace-fetch"]);
 
-const PATH_TRAVERSAL_RE = /[/\\]|\.\./;
+const PATH_TRAVERSAL_RE = /\\|\.\./;
 
 // ---------------------------------------------------------------------------
 // GET /api/marketplace.json

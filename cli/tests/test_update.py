@@ -31,7 +31,6 @@ def _make_entry(
     )
 
 
-@patch("openforge.update.send_event")
 @patch("openforge.update.check_entry_staleness")
 @patch("openforge.update.read_lock")
 @patch("openforge.update.lock_file_path")
@@ -41,7 +40,6 @@ def test_update_skips_up_to_date(
     mock_path: object,
     mock_read: object,
     mock_check: object,
-    mock_event: object,
 ) -> None:
     """Update with no outdated entries prints 'all up to date'."""
     from unittest.mock import MagicMock
@@ -63,14 +61,12 @@ def test_update_skips_up_to_date(
         patch("openforge.update.lock_file_path", return_value=Path("/tmp/lock.json")),
         patch("openforge.update.read_lock", mr),
         patch("openforge.update.check_entry_staleness", mc),
-        patch("openforge.update.send_event"),
     ):
         result = _runner.invoke(app, ["--yes"])
     assert result.exit_code == 0
     assert "up to date" in result.output.lower()
 
 
-@patch("openforge.update.send_event")
 @patch("openforge.update._reinstall_entry")
 @patch("openforge.update.check_entry_staleness")
 @patch("openforge.update.read_lock")
@@ -82,7 +78,6 @@ def test_update_reinstalls_outdated(
     mock_read: object,
     mock_check: object,
     mock_reinstall: object,
-    mock_event: object,
 ) -> None:
     """Update with outdated entry triggers reinstall."""
     from unittest.mock import MagicMock
@@ -107,7 +102,6 @@ def test_update_reinstalls_outdated(
         patch("openforge.update.read_lock", mr),
         patch("openforge.update.check_entry_staleness", mc),
         patch("openforge.update._reinstall_entry", mi),
-        patch("openforge.update.send_event"),
     ):
         result = _runner.invoke(app, ["--yes"])
     assert result.exit_code == 0

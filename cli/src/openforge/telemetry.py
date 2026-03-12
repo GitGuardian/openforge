@@ -1,11 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import os
 import threading
 
 from openforge.config_file import Config, load_config
 
 _cached_config: Config | None = None
+
+# CI environment variables (same list as config_file.py)
+_CI_ENV_VARS: tuple[str, ...] = (
+    "CI",
+    "GITHUB_ACTIONS",
+    "GITLAB_CI",
+    "JENKINS_URL",
+    "CIRCLECI",
+    "TRAVIS",
+    "BUILDKITE",
+)
 
 
 def _get_config() -> Config:
@@ -15,16 +27,42 @@ def _get_config() -> Config:
     return _cached_config
 
 
-def send_event(event: str, data: dict[str, object]) -> None:
-    """Fire-and-forget telemetry event. Never raises, never blocks."""
+def _is_ci() -> bool:
+    """Detect whether we are running inside a CI environment."""
+    return any(os.environ.get(var) for var in _CI_ENV_VARS)
+
+
+def send_install_event(
+    *,
+    plugin_name: str,
+    agents: list[str],
+    skill_name: str | None = None,
+) -> None:
+    """Fire-and-forget install telemetry event. Never raises, never blocks.
+
+    Sends a payload matching the Forge's POST /api/telemetry schema:
+      plugin_name (required), source="cli", agents, cli_version, is_ci,
+      skill_name (optional).
+    """
     config: Config = _get_config()
     if not config.telemetry_enabled:
         return
 
-    if not config.forge_url.startswith("https://"):
+    force = bool(os.environ.get("OPENFORGE_TELEMETRY_FORCE"))
+    if not config.forge_url.startswith("https://") and not force:
         return
 
-    payload: dict[str, object] = {"event": event, **data}
+    from openforge import __version__
+
+    payload: dict[str, object] = {
+        "plugin_name": plugin_name,
+        "source": "cli",
+        "agents": agents,
+        "cli_version": __version__,
+        "is_ci": _is_ci(),
+    }
+    if skill_name is not None:
+        payload["skill_name"] = skill_name
 
     def _send() -> None:
         try:
@@ -41,5 +79,7 @@ def send_event(event: str, data: dict[str, object]) -> None:
             # Telemetry must never block or crash the CLI.
             pass
 
-    thread = threading.Thread(target=_send, daemon=True)
+    thread = threading.Thread(target=_send, daemon=not force)
     thread.start()
+    if force:
+        thread.join(timeout=5)

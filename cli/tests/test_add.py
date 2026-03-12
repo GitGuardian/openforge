@@ -53,7 +53,7 @@ def test_add_skill_from_github(tmp_path: Path) -> None:
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = DetectedContent(
             content_type=ContentType.SKILL,
@@ -86,7 +86,7 @@ def test_add_with_specific_agent(tmp_path: Path) -> None:
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.install_to_all_agents", return_value=["cursor"]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = DetectedContent(
             content_type=ContentType.SKILL,
@@ -178,7 +178,7 @@ def test_add_symlinks_point_to_canonical_not_temp(tmp_path: Path) -> None:
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.installer.detect_agents", return_value=[fake_agent]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = DetectedContent(
             content_type=ContentType.SKILL,
@@ -214,7 +214,7 @@ def test_add_shows_friendly_error_on_clone_failure(tmp_path: Path) -> None:
     with (
         patch("openforge.add.get_provider", return_value=mock_provider),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         result = runner.invoke(test_app, ["acme/nonexistent"])
         # Should NOT show a Python traceback
@@ -305,7 +305,7 @@ def test_add_plugin_shows_confirmation_prompt(tmp_path: Path) -> None:
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = _make_plugin_detected()
 
@@ -342,7 +342,7 @@ def test_add_plugin_yes_flag_skips_confirmation(tmp_path: Path) -> None:
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = _make_plugin_detected()
 
@@ -376,7 +376,7 @@ def test_add_plugin_decline_skips_capabilities_but_installs_skills(tmp_path: Pat
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add._install_plugin_capabilities") as mock_install_caps,
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = _make_plugin_detected()
 
@@ -411,7 +411,7 @@ def test_add_plugin_agent_filter_applied_to_capabilities(tmp_path: Path) -> None
         patch("openforge.add.install_to_all_agents", return_value=["cursor"]),
         patch("openforge.add._install_plugin_capabilities") as mock_install_caps,
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         mock_content.return_value = _make_plugin_detected()
 
@@ -458,7 +458,7 @@ def test_add_plugin_no_capabilities_skips_confirmation(tmp_path: Path) -> None:
         patch("openforge.add.detect_content") as mock_content,
         patch("openforge.add.detect_agents", return_value=[]),
         patch("openforge.add.get_project_dir", return_value=tmp_path),
-        patch("openforge.add.send_event"),
+        patch("openforge.add.send_install_event"),
     ):
         safe_plugin = PluginInfo(
             name="safe-plugin",

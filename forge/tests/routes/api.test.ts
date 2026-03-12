@@ -233,6 +233,33 @@ describe("POST /api/telemetry", () => {
     expect(res.status).toBe(400);
   });
 
+  test("rejects plugin_name with backslash", async () => {
+    const app = createApiApp();
+    const res = await app.request("/api/telemetry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        plugin_name: "..\\etc\\passwd",
+        source: "cli",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("accepts plugin_name with forward slash (GitHub shorthand)", async () => {
+    const app = createApiApp();
+    const res = await app.request("/api/telemetry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        plugin_name: "tenfourty/cc-marketplace",
+        source: "cli",
+        agents: ["claude-code"],
+      }),
+    });
+    expect(res.status).toBe(204);
+  });
+
   test("rejects oversized content-length", async () => {
     const app = createApiApp();
     const res = await app.request("/api/telemetry", {

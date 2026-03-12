@@ -10,7 +10,6 @@ from rich.table import Table
 
 from openforge.cli import get_project_dir
 from openforge.lock import lock_file_path, read_lock
-from openforge.telemetry import send_event
 from openforge.types import LockEntry, SourceType
 
 _console = Console()
@@ -130,5 +129,3 @@ def check_command(
         )
     else:
         _console.print("\n[green]All up to date.[/green]")
-
-    send_event("check", {"entries_checked": len(results), "outdated": outdated_count})
