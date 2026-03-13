@@ -122,7 +122,7 @@ function paginationLinks(
 // ---------------------------------------------------------------------------
 
 export function escapeLike(s: string): string {
-  return s.replace(/%/g, "\\%").replace(/_/g, "\\_");
+  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
 async function queryPlugins(

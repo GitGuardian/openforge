@@ -550,6 +550,15 @@ describe("GET /plugins/:name/comments/:id/edit", () => {
     expect(html).toContain("Save");
   });
 
+  test("rejects GET edit form via wrong plugin URL (confused deputy)", async () => {
+    // Simulate wrong plugin by having getPluginId return a different ID
+    mockPluginId = "different-plugin-id";
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/wrong-plugin/comments/${COMMENT_ID}/edit`);
+    expect(res.status).toBe(404);
+    mockPluginId = PLUGIN_ID; // restore
+  });
+
   test("renders nested comment edit form with indent class", async () => {
     mockComments = [{
       id: COMMENT_ID,

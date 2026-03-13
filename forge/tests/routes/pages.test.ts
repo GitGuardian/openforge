@@ -390,6 +390,12 @@ describe("escapeLike", () => {
     expect(escapeLike("%_mixed_%")).toBe("\\%\\_mixed\\_\\%");
   });
 
+  test("escapes backslash before wildcards", () => {
+    expect(escapeLike("\\%")).toBe("\\\\\\%");
+    expect(escapeLike("\\_")).toBe("\\\\\\_");
+    expect(escapeLike("a\\b")).toBe("a\\\\b");
+  });
+
   test("returns plain strings unchanged", () => {
     expect(escapeLike("hello")).toBe("hello");
     expect(escapeLike("test-plugin")).toBe("test-plugin");

@@ -215,7 +215,10 @@ commentRoutes.get("/plugins/:name/comments/:id/edit", async (c) => {
   const user = requireAuth(c);
   const commentId = c.req.param("id");
   if (!isValidUuid(commentId)) return c.text("Invalid comment ID", 400);
+
   const pluginName = c.req.param("name");
+  const pluginId = await getPluginId(pluginName);
+  if (!pluginId) return c.text("Plugin not found", 404);
 
   const [comment] = await db
     .select()
@@ -223,7 +226,7 @@ commentRoutes.get("/plugins/:name/comments/:id/edit", async (c) => {
     .where(eq(comments.id, commentId))
     .limit(1);
 
-  if (!comment) return c.text("Comment not found", 404);
+  if (!comment || comment.pluginId !== pluginId) return c.text("Comment not found", 404);
   if (comment.userId !== user.id) return c.text("Not your comment", 403);
 
   return c.html(html`
