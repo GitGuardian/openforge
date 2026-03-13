@@ -24,6 +24,20 @@ def _canonical_base(
     return project_dir / ".agents" / subdir
 
 
+def _check_symlinks(source_dir: Path) -> None:
+    """Reject symlinks that point outside the source directory."""
+    resolved_root = source_dir.resolve()
+    for dirpath, _dirnames, filenames in os.walk(source_dir):
+        parent = Path(dirpath)
+        for entry in list(_dirnames) + filenames:
+            full = parent / entry
+            if full.is_symlink():
+                target = full.resolve()
+                if not target.is_relative_to(resolved_root):
+                    msg = f"Symlink escapes source directory: {full} -> {target}"
+                    raise ValueError(msg)
+
+
 def create_canonical_storage(
     source_dir: Path,
     project_dir: Path,
@@ -36,6 +50,7 @@ def create_canonical_storage(
     Returns the destination path.
     """
     validate_name(name)
+    _check_symlinks(source_dir)
     base = _canonical_base(project_dir, content_type, is_global)
     dest = base / name
     if dest.exists():

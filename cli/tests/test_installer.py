@@ -346,6 +346,61 @@ def test_create_canonical_storage_overwrites_existing(tmp_path: Path) -> None:
     assert (dest2 / "SKILL.md").read_text() == "version 2"
 
 
+def test_create_canonical_storage_rejects_symlink_escape(tmp_path: Path) -> None:
+    """Symlinks pointing outside the source directory must be rejected."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "SKILL.md").write_text("legit")
+    # Create a symlink that escapes the source tree
+    (source_dir / "escape").symlink_to(tmp_path / "outside")
+
+    with pytest.raises(ValueError, match="[Ss]ymlink"):
+        create_canonical_storage(
+            source_dir=source_dir,
+            project_dir=tmp_path / "project",
+            name="evil-skill",
+            content_type=ContentType.SKILL,
+            is_global=False,
+        )
+
+
+def test_create_canonical_storage_rejects_nested_symlink_escape(tmp_path: Path) -> None:
+    """Nested symlinks pointing outside the source directory must be rejected."""
+    source_dir = tmp_path / "source"
+    subdir = source_dir / "sub"
+    subdir.mkdir(parents=True)
+    (source_dir / "SKILL.md").write_text("legit")
+    # Nested symlink that escapes
+    (subdir / "passwd").symlink_to("/etc/passwd")
+
+    with pytest.raises(ValueError, match="[Ss]ymlink"):
+        create_canonical_storage(
+            source_dir=source_dir,
+            project_dir=tmp_path / "project",
+            name="evil-skill",
+            content_type=ContentType.SKILL,
+            is_global=False,
+        )
+
+
+def test_create_canonical_storage_allows_internal_symlinks(tmp_path: Path) -> None:
+    """Symlinks pointing within the source directory should be allowed."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "real.txt").write_text("content")
+    (source_dir / "link.txt").symlink_to(source_dir / "real.txt")
+
+    dest = create_canonical_storage(
+        source_dir=source_dir,
+        project_dir=tmp_path / "project",
+        name="ok-skill",
+        content_type=ContentType.SKILL,
+        is_global=False,
+    )
+    assert dest.exists()
+    assert (dest / "link.txt").is_symlink()
+
+
 def test_canonical_base_local_skill(tmp_path: Path) -> None:
     """_canonical_base returns .agents/skills/ for local skill."""
     result = _canonical_base(tmp_path, ContentType.SKILL, is_global=False)
