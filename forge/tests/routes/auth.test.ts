@@ -47,6 +47,11 @@ mock.module("../../src/lib/supabase", () => ({
   supabaseAdmin: null,
 }));
 
+let rateLimitAllowed = true;
+mock.module("../../src/lib/rate-limit", () => ({
+  checkRateLimit: () => rateLimitAllowed,
+}));
+
 mock.module("../../src/db", () => ({
   db: {
     select: () => ({
@@ -732,5 +737,125 @@ describe("POST /auth/logout", () => {
       (c: string) => c.includes("sb-access-token") && c.includes("Max-Age=0"),
     );
     expect(accessClear).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Rate limiting on auth endpoints
+// ---------------------------------------------------------------------------
+
+describe("Auth rate limiting", () => {
+  beforeEach(() => {
+    rateLimitAllowed = true;
+  });
+
+  afterEach(() => {
+    rateLimitAllowed = true;
+  });
+
+  test("POST /auth/login returns 429 when rate limited", async () => {
+    rateLimitAllowed = false;
+    const app = createAuthApp();
+    const res = await app.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=password123",
+      redirect: "manual",
+    });
+    expect(res.status).toBe(429);
+  });
+
+  test("POST /auth/signup returns 429 when rate limited", async () => {
+    rateLimitAllowed = false;
+    const app = createAuthApp();
+    const res = await app.request("/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=longenough&confirm_password=longenough",
+      redirect: "manual",
+    });
+    expect(res.status).toBe(429);
+  });
+
+  test("POST /auth/magic-link returns 429 when rate limited", async () => {
+    rateLimitAllowed = false;
+    const app = createAuthApp();
+    const res = await app.request("/auth/magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com",
+      redirect: "manual",
+    });
+    expect(res.status).toBe(429);
+  });
+
+  test("POST /auth/login succeeds when within rate limit", async () => {
+    rateLimitAllowed = true;
+    mockSignInResult = {
+      data: { session: { access_token: "a", refresh_token: "r" } },
+      error: null,
+    };
+    const app = createAuthApp();
+    const res = await app.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=test@example.com&password=password123",
+      redirect: "manual",
+    });
+    expect(res.status).not.toBe(429);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: OTP type parameter validation
+// ---------------------------------------------------------------------------
+
+describe("GET /auth/callback — OTP type validation", () => {
+  test("rejects invalid OTP type with 400", async () => {
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/callback?token_hash=abc&type=sms",
+      { redirect: "manual" },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("Invalid+callback");
+  });
+
+  test("rejects recovery OTP type", async () => {
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/callback?token_hash=abc&type=recovery",
+      { redirect: "manual" },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("Invalid+callback");
+  });
+
+  test("accepts magiclink OTP type", async () => {
+    mockVerifyResult = {
+      data: { session: { access_token: "a", refresh_token: "r" } },
+      error: null,
+    };
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/callback?token_hash=abc&type=magiclink",
+      { redirect: "manual" },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe("/");
+  });
+
+  test("accepts email OTP type", async () => {
+    mockVerifyResult = {
+      data: { session: { access_token: "a", refresh_token: "r" } },
+      error: null,
+    };
+    const app = createAuthApp();
+    const res = await app.request(
+      "/auth/callback?token_hash=abc&type=email",
+      { redirect: "manual" },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe("/");
   });
 });

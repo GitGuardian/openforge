@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { allowedDomains } from "../db/schema";
 import { supabase } from "../lib/supabase";
+import { checkRateLimit } from "../lib/rate-limit";
 import type { AppEnv } from "../types";
 import type { Context } from "hono";
 
@@ -218,6 +219,11 @@ authRoutes.get("/auth/magic-link", (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.post("/auth/login", async (c) => {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`auth:login:${ip}`, 5, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
+
   const body = await c.req.parseBody();
   const email = String(body.email ?? "");
   const password = String(body.password ?? "");
@@ -247,6 +253,11 @@ authRoutes.post("/auth/login", async (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.post("/auth/signup", async (c) => {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`auth:signup:${ip}`, 3, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
+
   const body = await c.req.parseBody();
   const email = String(body.email ?? "");
   const password = String(body.password ?? "");
@@ -302,6 +313,11 @@ authRoutes.post("/auth/signup", async (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.post("/auth/magic-link", async (c) => {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`auth:magic:${ip}`, 3, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
+
   const body = await c.req.parseBody();
   const email = String(body.email ?? "");
 
@@ -363,9 +379,13 @@ authRoutes.get("/auth/callback", async (c) => {
     return c.redirect("/auth/login?error=Invalid+callback+parameters");
   }
 
+  if (type !== "magiclink" && type !== "email") {
+    return c.redirect("/auth/login?error=Invalid+callback+parameters");
+  }
+
   const { data, error } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
-    type: type as "magiclink" | "email",
+    type,
   });
 
   if (error || !data.session) {
