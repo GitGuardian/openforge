@@ -8,7 +8,7 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.1
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
   - repo: local
@@ -41,7 +41,13 @@ repos:
         always_run: true
       - id: tests-forge-integration
         name: bun test integration (forge)
-        entry: bash -c 'if curl -sf http://localhost:3000/health >/dev/null 2>&1; then cd forge && bun test tests/integration/ 2>&1 | tail -1; else echo "Skipped (Forge not running)"; fi'
+        entry: bash scripts/require-forge.sh bun test tests/integration/
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: tests-forge-e2e
+        name: playwright e2e (forge)
+        entry: bash scripts/require-forge.sh npx playwright test
         language: system
         pass_filenames: false
         always_run: true

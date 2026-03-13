@@ -25,6 +25,15 @@ app.use("*", secureHeaders());
 // HMAC signature verification provides equivalent protection.
 app.route("/", webhookRoutes);
 
+// Test-only endpoint: reset rate limits between E2E test runs (before CSRF)
+if (process.env.NODE_ENV === "test") {
+  const { resetRateLimits } = await import("./lib/rate-limit");
+  app.post("/_test/reset-rate-limits", (c) => {
+    resetRateLimits();
+    return c.json({ reset: true });
+  });
+}
+
 app.use("*", csrf());
 app.use("*", authMiddleware);
 
@@ -44,14 +53,7 @@ app.route("/", commentRoutes);
 app.route("/", apiRoutes);
 app.route("/", pageRoutes);
 
-// Test-only endpoint: reset rate limits between E2E test runs
-if (process.env.NODE_ENV === "test") {
-  const { resetRateLimits } = await import("./lib/rate-limit");
-  app.post("/_test/reset-rate-limits", (c) => {
-    resetRateLimits();
-    return c.json({ reset: true });
-  });
-}
+// (test endpoint registered before CSRF above)
 
 // Global error handler
 app.onError((err, c) => {

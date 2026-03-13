@@ -43,14 +43,16 @@ test.describe("Rate limiting", () => {
     await resetRateLimits(request);
     const uniqueEmail = `rate-limit-signup-${Date.now()}@test.local`;
 
-    // Make 3 signup attempts (the limit)
+    // Make 3 signup attempts (the limit) — wait for each POST response
     for (let i = 0; i < 3; i++) {
       await page.goto("/auth/signup");
       await page.fill("input[name='email']", uniqueEmail);
       await page.fill("input[name='password']", "test-password-123!");
       await page.fill("input[name='confirm_password']", "test-password-123!");
-      await page.click("button[type='submit']");
-      await page.waitForLoadState("networkidle");
+      await Promise.all([
+        page.waitForResponse((res) => res.url().includes("/auth/signup") && res.request().method() === "POST"),
+        page.click("button[type='submit']"),
+      ]);
     }
 
     // 4th attempt should be rate limited

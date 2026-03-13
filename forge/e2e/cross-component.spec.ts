@@ -48,21 +48,20 @@ test.describe("Cross-Component E2E", () => {
     const publishResult = cliPublish(gitUrl, "Cross-component E2E test", tmpXdg);
     expect(publishResult.exitCode).toBe(0);
 
-    // 5. Navigate to curator dashboard
-    await page.goto("/curator/submissions?status=pending");
-    await expect(page).toHaveURL(/\/curator\/submissions/);
-    await expect(page.locator("body")).not.toContainText("Internal Server Error");
+    // 5. Navigate to curator dashboard — scope to our specific submission
+    await expect(async () => {
+      await page.goto("/curator/submissions?status=pending");
+      await expect(page.locator("table tbody tr", { hasText: gitUrl })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 10000 });
 
-    // Must show at least one submission row
-    await expect(page.locator("table tbody tr").first()).toBeVisible();
-
-    // Approve button must be present
-    const approveBtn = page.locator("button:text-is('Approve')").first();
+    const ourRow = page.locator("table tbody tr", { hasText: gitUrl });
+    const approveBtn = ourRow.locator("button:text-is('Approve')");
     await expect(approveBtn).toBeVisible();
 
+    const hxPost = await approveBtn.getAttribute("hx-post") ?? await ourRow.locator("form[action*='/review']").getAttribute("action") ?? "/review";
     const [reviewResp] = await Promise.all([
       page.waitForResponse(
-        (r) => r.url().includes("/review") && r.request().method() === "POST",
+        (r) => r.url().includes(hxPost) && r.request().method() === "POST",
       ),
       approveBtn.click(),
     ]);
@@ -91,16 +90,21 @@ test.describe("Cross-Component E2E", () => {
     expect(publishResult.exitCode).toBe(0);
 
     // 3. Approve via curator dashboard — scope to our specific submission row
-    await page.goto("/curator/submissions?status=pending");
+    //    Retry page load since CLI publish may still be processing
+    await expect(async () => {
+      await page.goto("/curator/submissions?status=pending");
+      await expect(page.locator("table tbody tr", { hasText: gitUrl })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 10000 });
     const ourRow = page.locator("table tbody tr", { hasText: gitUrl });
-    await expect(ourRow).toBeVisible();
 
     const approveBtn = ourRow.locator("button:text-is('Approve')");
     await expect(approveBtn).toBeVisible();
 
+    // Extract submission ID from the form action to scope waitForResponse
+    const hxPost = await approveBtn.getAttribute("hx-post") ?? await ourRow.locator("form[action*='/review']").getAttribute("action") ?? "/review";
     const [reviewResp] = await Promise.all([
       page.waitForResponse(
-        (r) => r.url().includes("/review") && r.request().method() === "POST",
+        (r) => r.url().includes(hxPost) && r.request().method() === "POST",
       ),
       approveBtn.click(),
     ]);

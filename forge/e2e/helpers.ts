@@ -142,6 +142,56 @@ export async function resetRateLimits(
   await request.post(`${forgeUrl}/_test/reset-rate-limits`);
 }
 
+/** Ensure at least one approved plugin exists in the catalogue (for tests that browse plugins). */
+export async function ensureTestPlugin(
+  request: APIRequestContext,
+): Promise<void> {
+  if (!SERVICE_ROLE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY not set — check forge/.env");
+  }
+  const headers = {
+    apikey: SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+    "Content-Type": "application/json",
+    Prefer: "return=representation",
+  };
+
+  // Check if any approved plugins exist
+  const existing = await request.fetch(
+    `${SUPABASE_URL}/rest/v1/plugins?status=eq.approved&limit=1`,
+    { headers },
+  );
+  const rows = await existing.json();
+  if (Array.isArray(rows) && rows.length > 0) return;
+
+  // Upsert a test registry
+  const regRes = await request.post(`${SUPABASE_URL}/rest/v1/registries`, {
+    data: {
+      name: "e2e-test",
+      git_url: "https://github.com/e2e-test/plugins",
+      registry_type: "github",
+    },
+    headers: { ...headers, Prefer: "return=representation,resolution=merge-duplicates" },
+  });
+  const [reg] = await regRes.json();
+
+  // Insert a test plugin
+  await request.post(`${SUPABASE_URL}/rest/v1/plugins`, {
+    data: {
+      registry_id: reg.id,
+      name: "e2e-test-plugin",
+      version: "1.0.0",
+      description: "Test plugin for E2E tests",
+      category: "testing",
+      tags: ["e2e", "test"],
+      git_path: "plugins/e2e-test-plugin",
+      git_sha: "abc123",
+      status: "approved",
+    },
+    headers: { ...headers, Prefer: "return=minimal,resolution=merge-duplicates" },
+  });
+}
+
 /** Login a user via the browser UI */
 export async function loginViaUI(
   page: import("@playwright/test").Page,

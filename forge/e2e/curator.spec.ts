@@ -59,19 +59,20 @@ test.describe("Curator E2E", () => {
 
     await loginViaUI(page, email, password);
     await promoteUserToCurator(request, userId);
-    const { gitUrl } = await createTestSubmission(request, token);
+    const { id: submissionId, gitUrl } = await createTestSubmission(request, token);
 
-    await page.goto("/curator/submissions?status=pending");
+    await expect(async () => {
+      await page.goto("/curator/submissions?status=pending");
+      await expect(page.locator("table tbody tr", { hasText: gitUrl })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 10000 });
 
-    // Scope approve button to the row containing our specific submission
     const row = page.locator("table tbody tr", { hasText: gitUrl });
-    await expect(row).toBeVisible();
     const approveBtn = row.locator("button:text-is('Approve')");
     await expect(approveBtn).toBeVisible();
 
     const [reviewResp] = await Promise.all([
       page.waitForResponse(
-        (r) => r.url().includes("/review") && r.request().method() === "POST",
+        (r) => r.url().includes(submissionId) && r.url().includes("/review") && r.request().method() === "POST",
       ),
       approveBtn.click(),
     ]);
@@ -91,19 +92,20 @@ test.describe("Curator E2E", () => {
 
     await loginViaUI(page, email, password);
     await promoteUserToCurator(request, userId);
-    const { gitUrl } = await createTestSubmission(request, token);
+    const { id: submissionId, gitUrl } = await createTestSubmission(request, token);
 
-    await page.goto("/curator/submissions?status=pending");
+    await expect(async () => {
+      await page.goto("/curator/submissions?status=pending");
+      await expect(page.locator("table tbody tr", { hasText: gitUrl })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 10000 });
 
-    // Scope reject button to the row containing our specific submission
     const row = page.locator("table tbody tr", { hasText: gitUrl });
-    await expect(row).toBeVisible();
     const rejectBtn = row.locator("button:text-is('Reject')");
     await expect(rejectBtn).toBeVisible();
 
     const [reviewResp] = await Promise.all([
       page.waitForResponse(
-        (r) => r.url().includes("/review") && r.request().method() === "POST",
+        (r) => r.url().includes(submissionId) && r.url().includes("/review") && r.request().method() === "POST",
       ),
       rejectBtn.click(),
     ]);
