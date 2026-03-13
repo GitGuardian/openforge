@@ -79,7 +79,37 @@ const app = (await import("../../src/index")).default;
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Submissions API — CSRF bypass", () => {
+describe("Submissions API — CSRF enforcement on cookie auth", () => {
+  test("POST /api/submissions from cross-origin form submission returns 403", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/submissions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Origin: "https://evil.com",
+        },
+        body: "gitUrl=https%3A%2F%2Fgithub.com%2Fowner%2Frepo",
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  test("POST /api/submissions/:id/review from cross-origin form submission returns 403", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/submissions/00000000-0000-0000-0000-000000000001/review", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Origin: "https://evil.com",
+        },
+        body: "action=approve",
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("Submissions API — CSRF bypass for Bearer auth", () => {
   test("POST /api/submissions succeeds with Bearer token and no CSRF token", async () => {
     const res = await app.fetch(
       new Request("http://localhost/api/submissions", {

@@ -23,15 +23,13 @@ app.use("*", logger());
 // HMAC signature verification provides equivalent protection.
 app.route("/", webhookRoutes);
 
-// Submissions API registered before CSRF — CLI clients use Bearer token auth,
-// not browser cookies, so CSRF protection is not needed (or possible).
-// Auth middleware is applied inline so user context is available.
-app.use("/api/submissions/*", authMiddleware);
-app.use("/api/submissions", authMiddleware);
-app.route("/", submissionRoutes);
-
 app.use("*", csrf());
 app.use("*", authMiddleware);
+
+// Submissions routes are after CSRF so cookie-auth requests are protected.
+// CLI clients using Bearer tokens are not affected — Hono's csrf() checks
+// Origin header which is only sent by browsers.
+app.route("/", submissionRoutes);
 
 // Static files
 app.use("/public/*", serveStatic({ root: "./" }));
