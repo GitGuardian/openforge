@@ -137,3 +137,18 @@ describe("Submissions API — CSRF bypass for Bearer auth", () => {
     expect(res.status).not.toBe(403);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: Security headers
+// ---------------------------------------------------------------------------
+
+describe("Security headers", () => {
+  test("GET /health includes security headers", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/health", { method: "GET" }),
+    );
+    expect(res.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(res.headers.get("X-Permitted-Cross-Domain-Policies")).toBe("none");
+  });
+});

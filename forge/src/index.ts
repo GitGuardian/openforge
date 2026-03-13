@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "hono/bun";
 import { csrf } from "hono/csrf";
+import { secureHeaders } from "hono/secure-headers";
 import { logger } from "hono/logger";
 import { authMiddleware } from "./middleware/auth";
 import { healthRoutes } from "./routes/health";
@@ -18,6 +19,7 @@ const app = new Hono<AppEnv>();
 
 // Middleware
 app.use("*", logger());
+app.use("*", secureHeaders());
 
 // Webhook route registered before CSRF — GitHub POSTs don't carry CSRF tokens.
 // HMAC signature verification provides equivalent protection.
