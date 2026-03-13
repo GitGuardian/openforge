@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { eq, or, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { plugins, skills, registries, installEvents } from "../db/schema";
+import { checkRateLimit } from "../lib/rate-limit";
 import type { AppEnv } from "../types";
 
 export const apiRoutes = new Hono<AppEnv>();
@@ -144,6 +145,11 @@ apiRoutes.get("/.well-known/skills/index.json", async (c) => {
 // ---------------------------------------------------------------------------
 
 apiRoutes.post("/api/telemetry", async (c) => {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`telemetry:${ip}`, 30, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
+
   try {
     // Body size limit check
     const contentLength = c.req.header("content-length");

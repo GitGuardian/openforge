@@ -72,6 +72,11 @@ mock.module("../../src/db", () => ({
   },
 }));
 
+let rateLimitAllowed = true;
+mock.module("../../src/lib/rate-limit", () => ({
+  checkRateLimit: () => rateLimitAllowed,
+}));
+
 // Mock supabase (auth middleware dependency, not used in API routes directly)
 mock.module("../../src/lib/supabase", () => ({
   supabase: { auth: { getUser: () => Promise.resolve({ data: { user: null }, error: null }) } },
@@ -317,5 +322,20 @@ describe("POST /api/telemetry", () => {
       }),
     });
     expect(res.status).toBe(400);
+  });
+
+  test("returns 429 when rate limited", async () => {
+    rateLimitAllowed = false;
+    try {
+      const app = createApiApp();
+      const res = await app.request("/api/telemetry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plugin_name: "test-plugin", source: "cli" }),
+      });
+      expect(res.status).toBe(429);
+    } finally {
+      rateLimitAllowed = true;
+    }
   });
 });
