@@ -156,11 +156,13 @@ submissionRoutes.post("/api/submissions/:id/review", async (c) => {
 
   if (!submission) return c.json({ error: "Submission not found" }, 404);
 
-  if (submission.status !== "pending") {
-    return c.json({ error: "Submission already reviewed" }, 409);
-  }
-
   const newStatus = action === "approve" ? "approved" : "rejected";
+
+  // Block no-op re-reviews (e.g. approving an already-approved submission)
+  // but allow curators to change their mind (approved→rejected, rejected→approved)
+  if (submission.status === newStatus) {
+    return c.json({ error: `Already ${newStatus}` }, 409);
+  }
 
   const [updated] = await db
     .update(submissions)

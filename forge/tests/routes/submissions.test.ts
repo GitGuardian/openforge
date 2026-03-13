@@ -391,8 +391,10 @@ describe("POST /api/submissions/:id/review", () => {
     expect(res.status).toBe(404);
   });
 
-  test("returns 409 when reviewing already-approved submission", async () => {
+  test("allows curator to change approved to rejected", async () => {
     selectResults.push([{ id: "sub-001", status: "approved", pluginId: "plugin-001" }]);
+    updateResults.push([{ id: "sub-001", status: "rejected", reviewNote: "Revoked" }]);
+    updateResults.push([]); // plugin status update
 
     const app = createApp(testCurator);
     const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
@@ -400,13 +402,29 @@ describe("POST /api/submissions/:id/review", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "reject", note: "Revoked due to policy violation" }),
     });
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error).toContain("already reviewed");
+    expect(body.status).toBe("rejected");
   });
 
-  test("returns 409 when reviewing already-rejected submission", async () => {
+  test("allows curator to change rejected to approved", async () => {
     selectResults.push([{ id: "sub-001", status: "rejected", pluginId: "plugin-001" }]);
+    updateResults.push([{ id: "sub-001", status: "approved" }]);
+    updateResults.push([]); // plugin status update
+
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("approved");
+  });
+
+  test("returns 409 when approving already-approved submission", async () => {
+    selectResults.push([{ id: "sub-001", status: "approved", pluginId: "plugin-001" }]);
 
     const app = createApp(testCurator);
     const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
@@ -416,7 +434,21 @@ describe("POST /api/submissions/:id/review", () => {
     });
     expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.error).toContain("already reviewed");
+    expect(body.error).toContain("Already approved");
+  });
+
+  test("returns 409 when rejecting already-rejected submission", async () => {
+    selectResults.push([{ id: "sub-001", status: "rejected", pluginId: "plugin-001" }]);
+
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reject" }),
+    });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toContain("Already rejected");
   });
 
   test("returns 400 for non-UUID submission ID", async () => {
