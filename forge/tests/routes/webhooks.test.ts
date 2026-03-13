@@ -257,14 +257,13 @@ describe("POST /api/webhooks/github", () => {
     expect(res.status).toBe(401);
   });
 
-  test("matches registry by HMAC, not by URL", async () => {
-    // Two registries with different URLs, only one secret matches
+  test("looks up registry by URL then verifies HMAC (not brute-force)", async () => {
+    // Two registries — payload URL matches reg-2, HMAC matches reg-2
     const secret2 = "other-secret";
     mockRegistries = [
       makeRegistry({ id: "reg-1", gitUrl: "https://github.com/org/repo-a", webhookSecret: "wrong-secret" }),
       makeRegistry({ id: "reg-2", gitUrl: "https://github.com/org/repo-b", webhookSecret: secret2 }),
     ];
-    // Payload URL doesn't match either registry — but HMAC matches reg-2
     const payload = makePushPayload({
       repository: { clone_url: "https://github.com/org/repo-b.git" },
     });
@@ -277,6 +276,22 @@ describe("POST /api/webhooks/github", () => {
     const body = await res.json();
     expect(body.message).toBe("indexing started");
     expect(mockIndexCalls).toContain("reg-2");
+  });
+
+  test("rejects valid HMAC when payload URL doesn't match any registry", async () => {
+    // HMAC is valid for TEST_SECRET, but payload URL doesn't match the registry URL
+    mockRegistries = [makeRegistry({ gitUrl: "https://github.com/org/other-repo" })];
+    const payload = makePushPayload({
+      repository: { clone_url: "https://github.com/org/unregistered-repo.git" },
+    });
+    const rawBody = JSON.stringify(payload);
+    const res = await webhookRequest(rawBody, {
+      "X-GitHub-Event": "push",
+      "X-Hub-Signature-256": signPayload(TEST_SECRET, rawBody),
+    });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("invalid signature");
   });
 
   test("rejects webhook when registry has no secret configured", async () => {

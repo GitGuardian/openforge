@@ -59,12 +59,15 @@ webhookRoutes.post("/api/webhooks/github", async (c) => {
     return c.json({ error: "no repository URL in payload" }, 400);
   }
 
-  // Verify HMAC first — try all registries, the matching one is ours
+  // Look up registry by URL first, then verify only that registry's HMAC.
+  // This eliminates O(n) HMAC computation and timing side-channels.
+  const normalize = (url: string) => url.replace(/\.git$/, "").replace(/\/$/, "");
+  const normalizedPayloadUrl = normalize(repoUrl);
   const allRegistries = await db.select().from(registries);
   const registry = allRegistries.find(
-    (r) => r.webhookSecret && verifySignature(r.webhookSecret, rawBody, signature),
+    (r) => normalize(r.gitUrl) === normalizedPayloadUrl,
   );
-  if (!registry) {
+  if (!registry?.webhookSecret || !verifySignature(registry.webhookSecret, rawBody, signature)) {
     return c.json({ error: "invalid signature" }, 401);
   }
 
