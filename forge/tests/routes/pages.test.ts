@@ -2,7 +2,7 @@ import { describe, expect, test, mock, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import type { AppEnv, AppUser } from "../../src/types";
 import { mockUser } from "../setup";
-import { escapeLike } from "../../src/routes/pages";
+import { escapeLike } from "../../src/lib/sql";
 
 // ---------------------------------------------------------------------------
 // Mock data

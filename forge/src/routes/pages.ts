@@ -10,6 +10,7 @@ import { submitPage } from "../views/submit";
 import { mySubmissionsPage } from "../views/my-submissions";
 import { curatorDashboardPage } from "../views/curator-dashboard";
 import { submissionReviewBanner } from "../views/components/submission-review";
+import { escapeLike } from "../lib/sql";
 import type { AppEnv } from "../types";
 
 export const pageRoutes = new Hono<AppEnv>();
@@ -120,10 +121,6 @@ function paginationLinks(
 // ---------------------------------------------------------------------------
 // Shared query logic — used by both the full page and the HTMX partial
 // ---------------------------------------------------------------------------
-
-export function escapeLike(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
 
 async function queryPlugins(
   q: string,
