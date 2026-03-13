@@ -208,6 +208,32 @@ def test_set_config_value_supabase_url(tmp_path: Path) -> None:
     assert "http://my-supabase:54321" in content
 
 
+def test_set_config_value_atomic_write(tmp_path: Path) -> None:
+    """Config file must be written atomically — os.chmod must NOT be used."""
+    import os
+    from unittest.mock import patch
+
+    user_dir = tmp_path / "user"
+    user_dir.mkdir()
+
+    chmod_calls: list[object] = []
+    original_chmod = os.chmod
+
+    def spy_chmod(*args: object) -> None:
+        chmod_calls.append(args)
+        original_chmod(*args)  # type: ignore[arg-type]
+
+    with patch("openforge.config_file.os.chmod", side_effect=spy_chmod):
+        set_config_value("forge.url", "https://new.com", user_config_dir=user_dir)
+
+    config_path = user_dir / "config.toml"
+    assert config_path.exists()
+    mode = os.stat(config_path).st_mode & 0o777
+    assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
+    # os.chmod must NOT be called — permissions set at creation via os.open
+    assert len(chmod_calls) == 0, "os.chmod should not be called; use os.open with mode instead"
+
+
 def test_malformed_toml_gives_clear_error(tmp_path: Path) -> None:
     """Corrupt TOML should raise ValueError, not raw TOMLDecodeError."""
     user_dir = tmp_path / "user"

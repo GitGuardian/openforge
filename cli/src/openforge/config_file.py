@@ -265,9 +265,16 @@ def set_config_value(
     # Ensure directory exists with restrictive permissions
     os.makedirs(user_dir, mode=0o700, exist_ok=True)
 
-    # Write back with restrictive permissions
+    # Atomic write: create temp file with 0o600 from the start via os.open
+    # so the config is never visible with default (world-readable) permissions.
     import tomli_w
 
-    with open(config_path, "wb") as f:
-        tomli_w.dump(data, f)
-    os.chmod(config_path, 0o600)
+    tmp_path = config_path.with_suffix(".tmp")
+    fd = os.open(str(tmp_path), os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            tomli_w.dump(data, f)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    os.replace(tmp_path, config_path)
