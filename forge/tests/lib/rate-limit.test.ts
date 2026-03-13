@@ -72,4 +72,32 @@ describe("checkRateLimit", () => {
     // Should be around 150 (new trigger keys) + 1 (just added), not 300+
     expect(_getStoreSize()).toBeLessThan(200);
   });
+
+  test("eviction does not prematurely remove entries from longer-window limiters", async () => {
+    // Short-window limiter: 50ms
+    const shortKey = "evict-short-window-test";
+    checkRateLimit(shortKey, 10, 50);
+
+    // Long-window limiter: 5000ms
+    const longKey = "evict-long-window-test";
+    checkRateLimit(longKey, 10, 5000);
+
+    // Wait for short window to expire but long window still active
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    // Trigger eviction by making 100 calls with the SHORT window
+    for (let i = 0; i < 100; i++) {
+      checkRateLimit(`evict-filler-${i}`, 10, 50);
+    }
+
+    // The long-window entry should NOT have been evicted
+    // If it was evicted, a new call would be allowed (limit=1 → returns true for fresh key)
+    // If it was NOT evicted, the existing timestamp is still valid → also returns true but count=2
+    // Better test: fill the long key to its limit, then check if it's still rate-limited
+    for (let i = 0; i < 9; i++) {
+      checkRateLimit(longKey, 10, 5000);
+    }
+    // longKey should now have 10 entries (1 original + 9 just added) → next should be blocked
+    expect(checkRateLimit(longKey, 10, 5000)).toBe(false);
+  });
 });

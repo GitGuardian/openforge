@@ -1,10 +1,11 @@
 /**
  * Simple in-memory sliding-window rate limiter.
  * Tracks timestamps per key (user ID) and rejects if too many in the window.
+ * Stores the window duration per key so eviction respects each limiter's window.
  * Resets on server restart — good enough for local dev.
  */
 
-const store = new Map<string, number[]>();
+const store = new Map<string, { timestamps: number[]; windowMs: number }>();
 let callCount = 0;
 
 export function checkRateLimit(
@@ -13,32 +14,33 @@ export function checkRateLimit(
   windowMs: number
 ): boolean {
   callCount++;
-  if (callCount % 100 === 0) evictExpired(windowMs);
+  if (callCount % 100 === 0) evictExpired();
 
   const now = Date.now();
-  const timestamps = store.get(key) ?? [];
+  const entry = store.get(key);
+  const timestamps = entry?.timestamps ?? [];
 
   // Prune expired timestamps
   const valid = timestamps.filter((t) => now - t < windowMs);
 
   if (valid.length >= maxRequests) {
-    store.set(key, valid);
+    store.set(key, { timestamps: valid, windowMs });
     return false; // rate limited
   }
 
   valid.push(now);
-  store.set(key, valid);
+  store.set(key, { timestamps: valid, windowMs });
   return true; // allowed
 }
 
-function evictExpired(windowMs: number): void {
+function evictExpired(): void {
   const now = Date.now();
-  for (const [key, timestamps] of store) {
-    const valid = timestamps.filter((t) => now - t < windowMs);
+  for (const [key, entry] of store) {
+    const valid = entry.timestamps.filter((t) => now - t < entry.windowMs);
     if (valid.length === 0) {
       store.delete(key);
     } else {
-      store.set(key, valid);
+      store.set(key, { timestamps: valid, windowMs: entry.windowMs });
     }
   }
 }
