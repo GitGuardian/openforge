@@ -42,10 +42,11 @@ On startup, run these to orient yourself:
 1. `cd forge` (set working directory)
 2. Read `forge/CLAUDE.md` (your component's rules, commands, structure)
 3. Read the root `CLAUDE.md` (project-wide context)
-4. `bun run typecheck` (current type check status)
-5. Read `src/db/schema.ts` (current database schema)
-6. `ls src/routes/` (route inventory)
-7. `git log --oneline -10 -- .` (recent Forge commits)
+4. `bun test --reporter=verbose 2>&1 | tail -5` (current test status)
+5. `bun run typecheck` (current type check status)
+6. Read `src/db/schema.ts` (current database schema)
+7. `ls src/routes/` (route inventory)
+8. `git log --oneline -10 -- .` (recent Forge commits)
 
 ## How You Work
 

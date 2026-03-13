@@ -1,0 +1,16 @@
+name = "openforge"
+main = "worker.js"
+compatibility_date = "2025-04-01"
+
+[[containers]]
+class_name = "OpenForgeContainer"
+image = "./Dockerfile"
+max_instances = 1
+
+[[durable_objects.bindings]]
+name = "OPENFORGE"
+class_name = "OpenForgeContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OpenForgeContainer"]
