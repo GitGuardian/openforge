@@ -342,7 +342,7 @@ describe("POST /api/submissions/:id/review", () => {
 
   test("returns 401 if not authenticated", async () => {
     const app = createApp(null);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -352,7 +352,7 @@ describe("POST /api/submissions/:id/review", () => {
 
   test("returns 403 if user is not curator or admin", async () => {
     const app = createApp(testUser);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -362,7 +362,7 @@ describe("POST /api/submissions/:id/review", () => {
 
   test("returns 400 if action is missing", async () => {
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -372,7 +372,7 @@ describe("POST /api/submissions/:id/review", () => {
 
   test("returns 400 if action is invalid", async () => {
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "maybe" }),
@@ -383,7 +383,7 @@ describe("POST /api/submissions/:id/review", () => {
   test("returns 404 if submission not found", async () => {
     selectResults.push([]); // empty — no submission found
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/nonexistent/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000099/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -391,36 +391,44 @@ describe("POST /api/submissions/:id/review", () => {
     expect(res.status).toBe(404);
   });
 
-  test("curator can re-review an already-approved submission (revoke)", async () => {
+  test("returns 409 when reviewing already-approved submission", async () => {
     selectResults.push([{ id: "sub-001", status: "approved", pluginId: "plugin-001" }]);
-    updateResults.push([{ id: "sub-001", status: "rejected" }]);
-    updateResults.push([]); // plugin status update
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "reject", note: "Revoked due to policy violation" }),
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.status).toBe("rejected");
+    expect(body.error).toContain("already reviewed");
   });
 
-  test("curator can re-review an already-rejected submission (approve)", async () => {
+  test("returns 409 when reviewing already-rejected submission", async () => {
     selectResults.push([{ id: "sub-001", status: "rejected", pluginId: "plugin-001" }]);
-    updateResults.push([{ id: "sub-001", status: "approved" }]);
-    updateResults.push([]); // plugin status update
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.status).toBe("approved");
+    expect(body.error).toContain("already reviewed");
+  });
+
+  test("returns 400 for non-UUID submission ID", async () => {
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/not-a-uuid/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("Invalid submission ID");
   });
 
   test("approves a pending submission and returns 200", async () => {
@@ -429,7 +437,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([]); // plugin status update (no returning)
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -446,7 +454,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([]);
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "reject", note: "Missing README" }),
@@ -462,7 +470,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([{ id: "sub-001", status: "approved" }]);
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -484,7 +492,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([{ id: "sub-001", status: "approved" }]);
 
     const app = createApp(testAdmin);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -497,7 +505,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([{ id: "sub-001", status: "approved" }]);
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -515,7 +523,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([{ id: "sub-001", status: "rejected" }]);
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -536,7 +544,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([{ id: "sub-001", status: "approved" }]);
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -555,7 +563,7 @@ describe("POST /api/submissions/:id/review", () => {
     updateResults.push([{ id: "sub-001", status: "rejected" }]);
 
     const app = createApp(testCurator);
-    const res = await app.request("/api/submissions/sub-001/review", {
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -150,6 +150,17 @@ describe("POST /plugins/:name/vote", () => {
     rateLimitAllowed = true;
   });
 
+  // --- Input length validation ---
+
+  test("returns 400 for plugin name exceeding 200 chars", async () => {
+    const longName = "a".repeat(201);
+    const app = createVoteApp();
+    const res = await voteRequest(app, longName, { value: 1 });
+    expect(res.status).toBe(400);
+    const text = await res.text();
+    expect(text).toBe("Invalid plugin name");
+  });
+
   // --- Auth ---
 
   test("rejects unauthenticated users with 401", async () => {

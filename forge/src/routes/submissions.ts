@@ -145,12 +145,20 @@ submissionRoutes.post("/api/submissions/:id/review", async (c) => {
   }
 
   const submissionId = c.req.param("id");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(submissionId)) {
+    return c.json({ error: "Invalid submission ID" }, 400);
+  }
+
   const [submission] = await db
     .select()
     .from(submissions)
     .where(eq(submissions.id, submissionId));
 
   if (!submission) return c.json({ error: "Submission not found" }, 404);
+
+  if (submission.status !== "pending") {
+    return c.json({ error: "Submission already reviewed" }, 409);
+  }
 
   const newStatus = action === "approve" ? "approved" : "rejected";
 

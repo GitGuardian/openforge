@@ -52,6 +52,10 @@ voteRoutes.post("/plugins/:name/vote", async (c) => {
   const user = requireAuth(c);
   const pluginName = c.req.param("name");
 
+  if (pluginName.length > 200) {
+    return c.text("Invalid plugin name", 400);
+  }
+
   // Rate limit: 30 votes per user per minute
   if (!checkRateLimit(`vote:${user.id}`, 30, 60_000)) {
     return c.text("Too many requests", 429);
