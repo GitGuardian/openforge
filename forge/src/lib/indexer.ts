@@ -69,9 +69,10 @@ export async function getHeadSha(repoDir: string): Promise<string> {
   });
 
   const output = await new Response(proc.stdout).text();
+  const stderr = await new Response(proc.stderr).text();
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    return "unknown";
+    throw new Error(`git rev-parse HEAD failed in ${repoDir}: ${stderr.trim()}`);
   }
   return output.trim();
 }
@@ -88,7 +89,8 @@ export async function findFiles(
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
-  } catch {
+  } catch (err) {
+    console.warn(`readdir failed for ${dir}:`, err);
     return results;
   }
 
@@ -567,7 +569,12 @@ export async function indexSubmission(submissionId: string): Promise<void> {
       .set({ pluginId: pluginRow.id })
       .where(eq(submissions.id, submissionId));
   } catch (err) {
-    await rejectSubmission(submissionId, `Indexing failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.error("Submission indexing failed:", err);
+    try {
+      await rejectSubmission(submissionId, `Indexing failed: ${err instanceof Error ? err.message : String(err)}`);
+    } catch (rejectErr) {
+      console.error("Failed to reject submission:", rejectErr);
+    }
   } finally {
     await rm(repoDir, { recursive: true, force: true });
   }
