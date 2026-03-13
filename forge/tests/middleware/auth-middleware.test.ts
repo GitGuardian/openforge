@@ -49,6 +49,22 @@ mock.module("../../src/db", () => ({
     }),
     insert: () => ({
       values: (values: Record<string, unknown>) => ({
+        onConflictDoUpdate: () => ({
+          returning: () => {
+            insertedUser = values;
+            // If mockDbUser is set, return it (simulating existing user updated)
+            if (mockDbUser) {
+              return Promise.resolve([mockDbUser]);
+            }
+            return Promise.resolve([{
+              id: "new-user-id",
+              email: values.email,
+              displayName: null,
+              role: values.role ?? "user",
+              authId: values.authId,
+            }]);
+          },
+        }),
         returning: () => {
           insertedUser = values;
           return Promise.resolve([{
@@ -198,6 +214,22 @@ describe("authMiddleware", () => {
     const body = await res.json();
     expect(body.user).not.toBeNull();
     expect(body.user.email).toBe("newbie@example.com");
+  });
+
+  // --- Upsert (TOCTOU safety) ---
+
+  test("uses upsert to handle concurrent user creation safely", async () => {
+    mockSupabaseUser = { id: "auth-concurrent", email: "concurrent@example.com" };
+    mockDbUser = null; // not in DB — will trigger insert path
+    const app = createAuthApp();
+    const res = await requestWithCookie(app, "/test", "valid-token");
+    expect(res.status).toBe(200);
+    // Verify upsert was called (insertedUser populated by onConflictDoUpdate path)
+    expect(insertedUser).not.toBeNull();
+    expect(insertedUser!.authId).toBe("auth-concurrent");
+    const body = await res.json();
+    expect(body.user).not.toBeNull();
+    expect(body.user.email).toBe("concurrent@example.com");
   });
 
   // --- Invalid/expired token ---

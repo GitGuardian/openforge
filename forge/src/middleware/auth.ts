@@ -1,7 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { getCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
-import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import type { AppEnv, AppUser } from "../types";
@@ -13,35 +12,17 @@ import type { Context } from "hono";
 // ---------------------------------------------------------------------------
 
 async function getOrCreateUser(authId: string, email: string): Promise<AppUser> {
-  // Try to find existing user by auth_id
-  const existing = await db
-    .select()
-    .from(users)
-    .where(eq(users.authId, authId))
-    .limit(1);
-
-  if (existing.length > 0) {
-    const row = existing[0];
-    return {
-      id: row.id,
-      email: row.email,
-      displayName: row.displayName,
-      role: row.role as AppUser["role"],
-      authId: row.authId ?? authId,
-    };
-  }
-
-  // Create new user
-  const inserted = await db
+  // Upsert: insert if not exists, update email if exists (prevents TOCTOU race)
+  const result = await db
     .insert(users)
-    .values({
-      email,
-      role: "user",
-      authId,
+    .values({ email, role: "user", authId })
+    .onConflictDoUpdate({
+      target: users.authId,
+      set: { email },
     })
     .returning();
 
-  const row = inserted[0];
+  const row = result[0];
   return {
     id: row.id,
     email: row.email,

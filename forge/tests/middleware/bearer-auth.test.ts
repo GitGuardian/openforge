@@ -35,6 +35,18 @@ mock.module("../../src/db", () => ({
     }),
     insert: () => ({
       values: () => ({
+        onConflictDoUpdate: () => ({
+          returning: () =>
+            Promise.resolve([
+              {
+                id: "user-001",
+                email: mockAuthUser?.email ?? "",
+                displayName: "Test User",
+                role: "user",
+                authId: mockAuthUser?.id ?? "",
+              },
+            ]),
+        }),
         returning: () =>
           Promise.resolve([
             {
