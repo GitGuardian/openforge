@@ -90,11 +90,12 @@ test.describe("Cross-Component E2E", () => {
     const publishResult = cliPublish(gitUrl, "Cross-component catalogue test", tmpXdg);
     expect(publishResult.exitCode).toBe(0);
 
-    // 3. Approve via curator dashboard
+    // 3. Approve via curator dashboard — scope to our specific submission row
     await page.goto("/curator/submissions?status=pending");
-    await expect(page.locator("table tbody tr").first()).toBeVisible();
+    const ourRow = page.locator("table tbody tr", { hasText: gitUrl });
+    await expect(ourRow).toBeVisible();
 
-    const approveBtn = page.locator("button:text-is('Approve')").first();
+    const approveBtn = ourRow.locator("button:text-is('Approve')");
     await expect(approveBtn).toBeVisible();
 
     const [reviewResp] = await Promise.all([
@@ -103,7 +104,9 @@ test.describe("Cross-Component E2E", () => {
       ),
       approveBtn.click(),
     ]);
-    expect(reviewResp.ok()).toBe(true);
+    const respStatus = reviewResp.status();
+    const respBody = await reviewResp.text().catch(() => "");
+    expect(reviewResp.ok(), `Review failed: ${respStatus} ${respBody}`).toBe(true);
 
     // 4. Verify marketplace.json still serves valid data after approval
     const marketplaceRes = await request.get(

@@ -68,13 +68,17 @@ def _reinstall_entry(name: str, entry: LockEntry, project_dir: Path, is_global: 
                 )
             )
 
-        agents = install_to_all_agents(
-            skills=canonical_skills,
-            project_dir=project_dir,
-            content_type=ContentType.SKILL,
-            is_global=is_global,
-            target_agent=None,
-        )
+        try:
+            agents = install_to_all_agents(
+                skills=canonical_skills,
+                project_dir=project_dir,
+                content_type=ContentType.SKILL,
+                is_global=is_global,
+                target_agent=None,
+            )
+        except ValueError as exc:
+            _console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from None
 
         # Update lock entry
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
