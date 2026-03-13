@@ -49,7 +49,7 @@ async function isEmailDomainAllowed(email: string): Promise<boolean> {
   const mode = process.env.OPENFORGE_MODE;
   if (mode !== "private") return true;
 
-  const domain = email.split("@")[1];
+  const domain = email.split("@")[1]?.toLowerCase();
   if (!domain) return false;
 
   const allowed = await db

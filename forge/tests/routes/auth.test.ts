@@ -52,6 +52,7 @@ mock.module("../../src/lib/rate-limit", () => ({
   checkRateLimit: () => rateLimitAllowed,
 }));
 
+let lastQueriedDomain: unknown = null;
 mock.module("../../src/db", () => ({
   db: {
     select: () => ({
@@ -59,6 +60,13 @@ mock.module("../../src/db", () => ({
         where: () => Promise.resolve(mockAllowedDomains),
       }),
     }),
+  },
+}));
+
+mock.module("drizzle-orm", () => ({
+  eq: (_col: unknown, val: unknown) => {
+    if (typeof val === "string") lastQueriedDomain = val;
+    return val;
   },
 }));
 
@@ -297,6 +305,22 @@ describe("POST /auth/signup", () => {
     expect(res.status).toBe(302);
     // Should redirect to login with confirmation message (no session returned)
     expect(res.headers.get("Location")).toContain("/auth/login");
+  });
+
+  test("matches domain case-insensitively in private mode", async () => {
+    process.env.OPENFORGE_MODE = "private";
+    mockAllowedDomains = [{ domain: "allowed.com" }];
+    mockSignUpResult = { data: { session: null }, error: null };
+    lastQueriedDomain = null;
+    const app = createAuthApp();
+    await app.request("/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=USER@ALLOWED.COM&password=longenough&confirm_password=longenough",
+      redirect: "manual",
+    });
+    // The domain queried against the DB should be lowercased
+    expect(lastQueriedDomain).toEqual("allowed.com");
   });
 
   test("sets cookies on immediate session (no email confirmation)", async () => {
