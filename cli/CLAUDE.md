@@ -115,6 +115,13 @@ uv run pyright src/openforge/              # Type checking
 ```
 The integration tests (respx) and e2e subprocess tests run without external services. The pre-commit hook already runs all tiers automatically.
 
+**Security patterns (established in Phase 6 hardening):**
+- Atomic file writes: use `os.open(O_CREAT|O_WRONLY, 0o600)` + `os.fdopen` + `os.replace` for token/config files
+- Path traversal: validate paths stay within expected directories using `resolve().is_relative_to()`
+- URL validation: reject non-HTTPS URLs from external sources (marketplace, wellknown)
+- Symlink protection: reject symlinks that escape source directories in canonical storage
+- Exception narrowing: catch specific exceptions, not bare `except`
+
 ---
 
 ## Testing Conventions

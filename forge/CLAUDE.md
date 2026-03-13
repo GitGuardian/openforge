@@ -71,7 +71,8 @@ forge/
     lib/
       markdown.ts             # Markdown rendering (marked + DOMPurify)
       supabase.ts             # Supabase client (auth, storage)
-      rate-limit.ts           # In-memory rate limiting
+      rate-limit.ts           # In-memory sliding-window rate limiting (IP+email keyed for auth)
+      sql.ts                  # Shared SQL utilities (escapeLike for ILIKE queries)
       indexer.ts              # Indexer library (clone, scan, upsert plugins/skills, indexSubmission)
       notifications.ts        # Email notifications (fire-and-forget)
     views/
@@ -140,7 +141,15 @@ bun run test:integration     # Integration tests — requires Forge+Supabase run
 npx playwright test          # E2E browser tests — requires Forge+Supabase running (~7s)
 bun run typecheck            # TypeScript type checking
 ```
-Integration and Playwright tests need local Supabase (`supabase start`) and Forge (`bun run dev`). The pre-commit hook runs integration tests automatically if Forge is reachable; Playwright is CI-only.
+Integration and Playwright tests need local Supabase (`supabase start`) and Forge (`bun run dev`). The pre-commit hook runs all tiers and **fails** if Forge isn't running (guard: `scripts/require-forge.sh`).
+
+**Security patterns (established in Phase 6 hardening):**
+- Rate limiting: in-memory sliding window in `lib/rate-limit.ts`, keyed by `IP:email` for auth routes (prevents corporate NAT collisions and test interference)
+- ILIKE queries: always use `escapeLike()` from `lib/sql.ts` to escape `%`, `_`, `\`
+- HTML output: escape user-supplied values; never expose raw Supabase/internal error messages
+- Webhook HMAC: look up registry by URL first, then verify HMAC (avoids iterating all secrets)
+- Test reset endpoint: registered before CSRF middleware in `index.ts`, gated by `NODE_ENV=test`
+- Middleware ordering in `index.ts`: webhooks → test endpoints → CSRF → auth → routes
 
 ---
 

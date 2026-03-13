@@ -67,6 +67,7 @@ When you make significant changes (new tables, new routes, new CLI commands, arc
 - Config precedence: env > `.openforge.toml` > `~/.config/openforge/config.toml` > defaults
 - Two plugin ingestion paths: **webhook auto-indexing** (trusted, auto-approved) and **community submissions** (untrusted, requires curator review)
 - CLI auth uses Supabase GoTrue REST API directly (no SDK dependency). Token stored at `~/.config/openforge/token.json` with 0o600 permissions
+- Security hardening (Phase 6): auth rate limiting (IP+email keyed), atomic file writes, path traversal protection, SSRF prevention, XSS escaping, HMAC optimization, symlink protection. See component CLAUDE.md files for details.
 
 ---
 
