@@ -127,6 +127,31 @@ def test_wellknown_rejects_path_traversal_file_name(mock_get: MagicMock, tmp_pat
         p.fetch(s, tmp_path)
 
 
+def test_wellknown_rejects_file_scheme_url(tmp_path: Path) -> None:
+    """file:// URLs must be rejected to prevent local file access."""
+    p = WellKnownProvider()
+    s = Source(source_type=SourceType.WELL_KNOWN, url="file:///etc/passwd")
+    with pytest.raises(ValueError, match="[Hh][Tt][Tt][Pp][Ss]"):
+        p.fetch(s, tmp_path)
+
+
+def test_wellknown_rejects_ftp_scheme_url(tmp_path: Path) -> None:
+    """ftp:// URLs must be rejected."""
+    p = WellKnownProvider()
+    s = Source(source_type=SourceType.WELL_KNOWN, url="ftp://evil.com")
+    with pytest.raises(ValueError, match="[Hh][Tt][Tt][Pp][Ss]"):
+        p.fetch(s, tmp_path)
+
+
+def test_wellknown_allows_localhost_http(tmp_path: Path) -> None:
+    """http://localhost should be allowed for local dev."""
+    p = WellKnownProvider()
+    s = Source(source_type=SourceType.WELL_KNOWN, url="http://localhost:3000")
+    # Should NOT raise ValueError about scheme — will fail on network, not validation
+    with pytest.raises((ValueError, OSError)):
+        p.fetch(s, tmp_path)
+
+
 @patch("openforge.providers.wellknown._http_get")
 def test_wellknown_propagates_programming_errors(mock_get: MagicMock, tmp_path: Path) -> None:
     """TypeError should propagate, not be swallowed as a network error."""

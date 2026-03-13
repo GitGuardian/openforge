@@ -33,6 +33,15 @@ class WellKnownProvider:
         """Fetch skills from a .well-known/skills/index.json endpoint."""
         base_url = (source.url or "").rstrip("/")
 
+        # Allow https:// always, http:// only for localhost (dev)
+        if not (
+            base_url.startswith("https://")
+            or base_url.startswith("http://localhost")
+            or base_url.startswith("http://127.0.0.1")
+        ):
+            msg = f"URL must use HTTPS (got {base_url!r})"
+            raise ValueError(msg)
+
         # Try /.well-known/skills/index.json
         index_url = f"{base_url}/.well-known/skills/index.json"
         try:
