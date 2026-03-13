@@ -2,6 +2,7 @@ import { describe, expect, test, mock, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import type { AppEnv, AppUser } from "../../src/types";
 import { mockUser } from "../setup";
+import { escapeLike } from "../../src/routes/pages";
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -367,6 +368,37 @@ describe("GET /plugins/:name", () => {
   test("works for authenticated users", async () => {
     const app = createPageApp(mockUser());
     const res = await app.request("/plugins/test-plugin");
+    expect(res.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: escapeLike
+// ---------------------------------------------------------------------------
+
+describe("escapeLike", () => {
+  test("escapes percent wildcards", () => {
+    expect(escapeLike("100%")).toBe("100\\%");
+    expect(escapeLike("%match%")).toBe("\\%match\\%");
+  });
+
+  test("escapes underscore wildcards", () => {
+    expect(escapeLike("foo_bar")).toBe("foo\\_bar");
+  });
+
+  test("escapes both wildcards", () => {
+    expect(escapeLike("%_mixed_%")).toBe("\\%\\_mixed\\_\\%");
+  });
+
+  test("returns plain strings unchanged", () => {
+    expect(escapeLike("hello")).toBe("hello");
+    expect(escapeLike("test-plugin")).toBe("test-plugin");
+  });
+
+  test("search endpoint accepts wildcard characters without error", async () => {
+    const app = createPageApp();
+    // %25 is URL-encoded %, should not cause SQL injection via ILIKE
+    const res = await app.request("/?q=%25");
     expect(res.status).toBe(200);
   });
 });

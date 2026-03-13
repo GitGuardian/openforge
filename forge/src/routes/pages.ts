@@ -121,6 +121,10 @@ function paginationLinks(
 // Shared query logic — used by both the full page and the HTMX partial
 // ---------------------------------------------------------------------------
 
+export function escapeLike(s: string): string {
+  return s.replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 async function queryPlugins(
   q: string,
   page: number,
@@ -129,10 +133,11 @@ async function queryPlugins(
 ) {
   const conditions = [eq(plugins.status, "approved")];
   if (q) {
+    const escaped = escapeLike(q);
     conditions.push(
       or(
-        ilike(plugins.name, `%${q}%`),
-        ilike(plugins.description, `%${q}%`)
+        ilike(plugins.name, `%${escaped}%`),
+        ilike(plugins.description, `%${escaped}%`)
       )!
     );
   }
