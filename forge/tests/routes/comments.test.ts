@@ -445,6 +445,25 @@ describe("PATCH /plugins/:name/comments/:id", () => {
     expect(res.status).toBe(400);
   });
 
+  test("rejects editing comment via wrong plugin URL (confused deputy)", async () => {
+    mockComments = [{
+      id: COMMENT_ID,
+      body: "original body",
+      parentId: null,
+      pluginId: "other-plugin-id", // comment belongs to different plugin
+      userId: mockUser().id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }];
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: "hijacked edit" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   test("edits own comment successfully", async () => {
     const app = createCommentApp();
     const res = await app.request(`/plugins/test/comments/${COMMENT_ID}`, {
@@ -608,6 +627,23 @@ describe("DELETE /plugins/:name/comments/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(403);
+  });
+
+  test("rejects deleting comment via wrong plugin URL (confused deputy)", async () => {
+    mockComments = [{
+      id: COMMENT_ID,
+      body: "to delete",
+      parentId: null,
+      pluginId: "other-plugin-id", // comment belongs to different plugin
+      userId: mockUser().id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }];
+    const app = createCommentApp();
+    const res = await app.request(`/plugins/test/comments/${COMMENT_ID}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(404);
   });
 
   test("deletes own top-level comment (cascades replies)", async () => {

@@ -157,14 +157,18 @@ commentRoutes.patch("/plugins/:name/comments/:id", async (c) => {
   const commentId = c.req.param("id");
   if (!isValidUuid(commentId)) return c.text("Invalid comment ID", 400);
 
-  // Verify ownership
+  const pluginName = c.req.param("name");
+  const pluginId = await getPluginId(pluginName);
+  if (!pluginId) return c.text("Plugin not found", 404);
+
+  // Verify ownership and plugin membership
   const [comment] = await db
     .select()
     .from(comments)
     .where(eq(comments.id, commentId))
     .limit(1);
 
-  if (!comment) return c.text("Comment not found", 404);
+  if (!comment || comment.pluginId !== pluginId) return c.text("Comment not found", 404);
   if (comment.userId !== user.id) return c.text("Not your comment", 403);
 
   // Parse body
@@ -189,7 +193,6 @@ commentRoutes.patch("/plugins/:name/comments/:id", async (c) => {
     .where(eq(comments.id, commentId))
     .returning();
 
-  const pluginName = c.req.param("name");
   const commentRow: CommentRow = {
     id: updated.id,
     body: updated.body,
@@ -273,13 +276,17 @@ commentRoutes.delete("/plugins/:name/comments/:id", async (c) => {
   const commentId = c.req.param("id");
   if (!isValidUuid(commentId)) return c.text("Invalid comment ID", 400);
 
+  const pluginName = c.req.param("name");
+  const pluginId = await getPluginId(pluginName);
+  if (!pluginId) return c.text("Plugin not found", 404);
+
   const [comment] = await db
     .select()
     .from(comments)
     .where(eq(comments.id, commentId))
     .limit(1);
 
-  if (!comment) return c.text("Comment not found", 404);
+  if (!comment || comment.pluginId !== pluginId) return c.text("Comment not found", 404);
   if (comment.userId !== user.id) return c.text("Not your comment", 403);
 
   // Delete replies and parent atomically in a transaction
