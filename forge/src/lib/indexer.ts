@@ -509,7 +509,8 @@ export async function indexSubmission(submissionId: string): Promise<void> {
   try {
     repoDir = await cloneRepo(submission.gitUrl);
   } catch (err) {
-    await rejectSubmission(submissionId, `Failed to clone repository: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`Clone failed for submission ${submissionId}:`, err);
+    await rejectSubmission(submissionId, "Indexing failed — please verify your repository is accessible and public.");
     return;
   }
 
@@ -575,9 +576,9 @@ export async function indexSubmission(submissionId: string): Promise<void> {
       .set({ pluginId: pluginRow.id })
       .where(eq(submissions.id, submissionId));
   } catch (err) {
-    console.error("Submission indexing failed:", err);
+    console.error(`Submission indexing failed for ${submissionId}:`, err);
     try {
-      await rejectSubmission(submissionId, `Indexing failed: ${err instanceof Error ? err.message : String(err)}`);
+      await rejectSubmission(submissionId, "Indexing failed — please verify your repository is accessible and contains a valid plugin.");
     } catch (rejectErr) {
       console.error("Failed to reject submission:", rejectErr);
     }
