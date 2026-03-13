@@ -451,6 +451,21 @@ describe("POST /api/submissions/:id/review", () => {
     expect(body.error).toContain("Already rejected");
   });
 
+  test("returns 409 on race condition (concurrent review)", async () => {
+    // SELECT returns pending (status hasn't changed yet from our perspective)
+    selectResults.push([{ id: "sub-001", status: "pending", pluginId: "plugin-001" }]);
+    // But the atomic UPDATE with status guard returns empty (another curator already changed it)
+    updateResults.push([]);
+
+    const app = createApp(testCurator);
+    const res = await app.request("/api/submissions/00000000-0000-0000-0000-000000000001/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    });
+    expect(res.status).toBe(409);
+  });
+
   test("returns 400 for non-UUID submission ID", async () => {
     const app = createApp(testCurator);
     const res = await app.request("/api/submissions/not-a-uuid/review", {

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { submissions, plugins } from "../db/schema";
 import { indexSubmission } from "../lib/indexer";
@@ -158,12 +158,8 @@ submissionRoutes.post("/api/submissions/:id/review", async (c) => {
 
   const newStatus = action === "approve" ? "approved" : "rejected";
 
-  // Block no-op re-reviews (e.g. approving an already-approved submission)
-  // but allow curators to change their mind (approved→rejected, rejected→approved)
-  if (submission.status === newStatus) {
-    return c.json({ error: `Already ${newStatus}` }, 409);
-  }
-
+  // Atomic update: only succeeds if status != newStatus (prevents race conditions
+  // where two curators review simultaneously, and blocks no-op re-reviews)
   const [updated] = await db
     .update(submissions)
     .set({
@@ -172,8 +168,12 @@ submissionRoutes.post("/api/submissions/:id/review", async (c) => {
       reviewNote: note,
       reviewedAt: new Date(),
     })
-    .where(eq(submissions.id, submissionId))
+    .where(and(eq(submissions.id, submissionId), ne(submissions.status, newStatus)))
     .returning();
+
+  if (!updated) {
+    return c.json({ error: `Already ${newStatus}` }, 409);
+  }
 
   // Update linked plugin status if one exists
   if (submission.pluginId) {
