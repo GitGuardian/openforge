@@ -134,6 +134,14 @@ export async function createTestSubmission(
   return { id: data.id, gitUrl };
 }
 
+/** Reset server-side rate limits (requires NODE_ENV=test on the Forge server) */
+export async function resetRateLimits(
+  request: APIRequestContext,
+  forgeUrl: string = "http://localhost:3000",
+): Promise<void> {
+  await request.post(`${forgeUrl}/_test/reset-rate-limits`);
+}
+
 /** Login a user via the browser UI */
 export async function loginViaUI(
   page: import("@playwright/test").Page,

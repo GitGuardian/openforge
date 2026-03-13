@@ -44,6 +44,15 @@ app.route("/", commentRoutes);
 app.route("/", apiRoutes);
 app.route("/", pageRoutes);
 
+// Test-only endpoint: reset rate limits between E2E test runs
+if (process.env.NODE_ENV === "test") {
+  const { resetRateLimits } = await import("./lib/rate-limit");
+  app.post("/_test/reset-rate-limits", (c) => {
+    resetRateLimits();
+    return c.json({ reset: true });
+  });
+}
+
 // Global error handler
 app.onError((err, c) => {
   if (err instanceof HTTPException) {

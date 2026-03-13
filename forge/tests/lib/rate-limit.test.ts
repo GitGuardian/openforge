@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { checkRateLimit } from "../../src/lib/rate-limit";
+import { checkRateLimit, resetRateLimits } from "../../src/lib/rate-limit";
 
 describe("checkRateLimit", () => {
   // Use unique keys per test to avoid cross-test contamination
@@ -71,6 +71,16 @@ describe("checkRateLimit", () => {
     const { _getStoreSize } = await import("../../src/lib/rate-limit");
     // Should be around 150 (new trigger keys) + 1 (just added), not 300+
     expect(_getStoreSize()).toBeLessThan(200);
+  });
+
+  test("resetRateLimits clears all entries", () => {
+    const key = "rate-test-reset";
+    checkRateLimit(key, 1, 60_000);
+    expect(checkRateLimit(key, 1, 60_000)).toBe(false); // blocked
+
+    resetRateLimits();
+
+    expect(checkRateLimit(key, 1, 60_000)).toBe(true); // allowed again
   });
 
   test("eviction does not prematurely remove entries from longer-window limiters", async () => {

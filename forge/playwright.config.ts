@@ -26,6 +26,7 @@ export default defineConfig({
       SUPABASE_SERVICE_ROLE_KEY:
         process.env.SUPABASE_SERVICE_ROLE_KEY || "",
       OPENFORGE_MODE: "public",
+      NODE_ENV: "test",
     },
   },
 });

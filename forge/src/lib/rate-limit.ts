@@ -49,3 +49,8 @@ function evictExpired(): void {
 export function _getStoreSize(): number {
   return store.size;
 }
+
+/** Clear all rate limit entries. Used by E2E test fixtures to reset state between tests. */
+export function resetRateLimits(): void {
+  store.clear();
+}
