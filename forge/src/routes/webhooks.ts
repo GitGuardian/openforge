@@ -40,7 +40,7 @@ webhookRoutes.post("/api/webhooks/github", async (c) => {
     return c.json({ error: "missing signature" }, 401);
   }
 
-  // Parse payload to find repo URL
+  // Parse payload
   let payload: { repository?: { clone_url?: string; html_url?: string }; ref?: string };
   try {
     payload = JSON.parse(rawBody);
@@ -59,22 +59,12 @@ webhookRoutes.post("/api/webhooks/github", async (c) => {
     return c.json({ error: "no repository URL in payload" }, 400);
   }
 
-  // Find matching registry by normalized URL (strip trailing .git and slash)
-  const normalize = (url: string) => url.replace(/\.git$/, "").replace(/\/$/, "");
-  const normalizedRepoUrl = normalize(repoUrl);
+  // Verify HMAC first — try all registries, the matching one is ours
   const allRegistries = await db.select().from(registries);
   const registry = allRegistries.find(
-    (r) => normalize(r.gitUrl) === normalizedRepoUrl,
+    (r) => r.webhookSecret && verifySignature(r.webhookSecret, rawBody, signature),
   );
   if (!registry) {
-    return c.json({ error: "no matching registry" }, 404);
-  }
-
-  // Verify HMAC signature
-  if (!registry.webhookSecret) {
-    return c.json({ error: "registry has no webhook secret configured" }, 403);
-  }
-  if (!verifySignature(registry.webhookSecret, rawBody, signature)) {
     return c.json({ error: "invalid signature" }, 401);
   }
 
