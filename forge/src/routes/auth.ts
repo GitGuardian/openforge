@@ -219,14 +219,14 @@ authRoutes.get("/auth/magic-link", (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.post("/auth/login", async (c) => {
-  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`auth:login:${ip}`, 5, 60_000)) {
-    return c.text("Too many requests", 429);
-  }
-
   const body = await c.req.parseBody();
   const email = String(body.email ?? "");
   const password = String(body.password ?? "");
+
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`auth:login:${ip}:${email}`, 5, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
 
   if (!email || !password) {
     return c.redirect("/auth/login?error=Email+and+password+are+required");
@@ -253,15 +253,15 @@ authRoutes.post("/auth/login", async (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.post("/auth/signup", async (c) => {
-  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`auth:signup:${ip}`, 3, 60_000)) {
-    return c.text("Too many requests", 429);
-  }
-
   const body = await c.req.parseBody();
   const email = String(body.email ?? "");
   const password = String(body.password ?? "");
   const confirmPassword = String(body.confirm_password ?? "");
+
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`auth:signup:${ip}:${email}`, 3, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
 
   if (!email || !password) {
     return c.redirect("/auth/signup?error=Email+and+password+are+required");
@@ -313,13 +313,13 @@ authRoutes.post("/auth/signup", async (c) => {
 // ---------------------------------------------------------------------------
 
 authRoutes.post("/auth/magic-link", async (c) => {
-  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`auth:magic:${ip}`, 3, 60_000)) {
-    return c.text("Too many requests", 429);
-  }
-
   const body = await c.req.parseBody();
   const email = String(body.email ?? "");
+
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`auth:magic:${ip}:${email}`, 3, 60_000)) {
+    return c.text("Too many requests", 429);
+  }
 
   if (!email) {
     return c.redirect("/auth/magic-link?error=Email+is+required");

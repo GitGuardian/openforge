@@ -48,8 +48,12 @@ mock.module("../../src/lib/supabase", () => ({
 }));
 
 let rateLimitAllowed = true;
+let lastRateLimitKey: unknown = null;
 mock.module("../../src/lib/rate-limit", () => ({
-  checkRateLimit: () => rateLimitAllowed,
+  checkRateLimit: (key: string) => {
+    lastRateLimitKey = key;
+    return rateLimitAllowed;
+  },
 }));
 
 let lastQueriedDomain: unknown = null;
@@ -827,6 +831,20 @@ describe("Auth rate limiting", () => {
       redirect: "manual",
     });
     expect(res.status).not.toBe(429);
+  });
+
+  test("rate limit key includes email so different accounts are independent", async () => {
+    rateLimitAllowed = true;
+    lastRateLimitKey = null;
+    mockSignInResult = { data: { session: null }, error: { message: "bad" } };
+    const app = createAuthApp();
+    await app.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "email=alice@example.com&password=password123",
+      redirect: "manual",
+    });
+    expect(lastRateLimitKey as string).toContain("alice@example.com");
   });
 });
 
