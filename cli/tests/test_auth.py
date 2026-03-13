@@ -354,6 +354,42 @@ def test_login_handles_network_error(tmp_path: Path) -> None:
         assert "connect" in result.output.lower() or "network" in result.output.lower()
 
 
+def test_store_token_creates_tmp_with_0600_from_start(tmp_path: Path) -> None:
+    """Tmp file must be created with 0o600 via os.open — os.chmod must NOT be used."""
+    import os
+
+    from openforge.auth import _store_token
+
+    token_dir = tmp_path / "config"
+    token_dir.mkdir()
+
+    chmod_calls: list[object] = []
+    original_chmod = os.chmod
+
+    def spy_chmod(*args: object) -> None:
+        chmod_calls.append(args)
+        original_chmod(*args)  # type: ignore[arg-type]
+
+    with (
+        patch("openforge.auth._get_token_dir", return_value=token_dir),
+        patch("openforge.auth.os.chmod", side_effect=spy_chmod),
+    ):
+        _store_token(
+            access_token="at",
+            refresh_token="rt",
+            email="a@b.com",
+            user_id="u1",
+        )
+
+    # File must exist with 0o600 permissions
+    token_file = token_dir / "token.json"
+    assert token_file.exists()
+    mode = os.stat(token_file).st_mode & 0o777
+    assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
+    # os.chmod must NOT have been called — permissions set at creation via os.open
+    assert len(chmod_calls) == 0, "os.chmod should not be called; use os.open with mode instead"
+
+
 def test_token_file_has_restrictive_permissions(tmp_path: Path) -> None:
     """Token file is written with 600 permissions."""
     import os

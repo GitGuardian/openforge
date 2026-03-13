@@ -81,11 +81,16 @@ def _store_token(
         "email": email,
         "user_id": user_id,
     }
-    # Atomic write: set permissions on temp file BEFORE rename so the
-    # token is never visible with default (world-readable) permissions.
+    # Atomic write: create temp file with 0o600 from the start via os.open
+    # so the token is never visible with default (world-readable) permissions.
     tmp_file = token_file.with_suffix(".tmp")
-    tmp_file.write_text(json.dumps(token_data), encoding="utf-8")
-    os.chmod(tmp_file, 0o600)
+    fd = os.open(str(tmp_file), os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(token_data, f)
+    except BaseException:
+        tmp_file.unlink(missing_ok=True)
+        raise
     os.replace(tmp_file, token_file)
 
 
