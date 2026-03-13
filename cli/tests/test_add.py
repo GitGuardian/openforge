@@ -97,6 +97,42 @@ def test_add_with_specific_agent(tmp_path: Path) -> None:
         assert result.exit_code == 0, result.output
 
 
+def test_add_with_invalid_agent_shows_error(tmp_path: Path) -> None:
+    """--agent with unknown name should show friendly error, not traceback."""
+    from openforge.add import add_command
+
+    test_app = typer.Typer()
+    test_app.command("add")(add_command)
+    runner = CliRunner()
+
+    def fake_fetch(source: Source, dest: Path) -> FetchResult:
+        skill_dir = dest / "skills" / "lint"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: lint\n---\n")
+        return FetchResult(sha="abc123", content_root=dest)
+
+    mock_provider = _make_mock_provider(fetch_side_effect=fake_fetch)
+
+    with (
+        patch("openforge.add.get_provider", return_value=mock_provider),
+        patch("openforge.add.detect_content") as mock_content,
+        patch(
+            "openforge.add.install_to_all_agents", side_effect=ValueError("Unknown agent: 'bogus'")
+        ),
+        patch("openforge.add.get_project_dir", return_value=tmp_path),
+        patch("openforge.add.send_install_event"),
+    ):
+        mock_content.return_value = DetectedContent(
+            content_type=ContentType.SKILL,
+            skills=(SkillInfo(name="lint", path="skills/lint"),),
+        )
+
+        result = runner.invoke(test_app, ["acme/tools", "--agent", "bogus"])
+        assert result.exit_code == 1
+        assert "Unknown agent" in result.output
+        assert "Traceback" not in result.output
+
+
 def test_e2e_with_local_repo(tmp_path: Path, sample_skill_repo: Path) -> None:
     """Full flow: detect content, create canonical storage, write lock file."""
     from openforge.installer import create_canonical_storage

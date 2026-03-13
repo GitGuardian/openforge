@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 
 from openforge.providers.base import FetchResult
 from openforge.types import Source, SourceType
-from openforge.validation import validate_name
+from openforge.validation import validate_name, validate_path_containment
 
 _MAX_FILE_SIZE = 1_000_000  # 1MB per file
 
@@ -58,11 +58,8 @@ class WellKnownProvider:
             skill_dir.mkdir(parents=True, exist_ok=True)
 
             for fname in files:
-                # Path traversal protection for file names
                 file_dest = (skill_dir / fname).resolve()
-                if not str(file_dest).startswith(str(skill_dir.resolve())):
-                    msg = f"Path traversal detected in file name: {fname}"
-                    raise ValueError(msg)
+                validate_path_containment(file_dest, skill_dir)
 
                 file_url = f"{base_url}/.well-known/skills/{name}/{fname}"
                 try:

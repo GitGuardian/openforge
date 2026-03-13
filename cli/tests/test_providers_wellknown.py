@@ -123,7 +123,7 @@ def test_wellknown_rejects_path_traversal_file_name(mock_get: MagicMock, tmp_pat
 
     p = WellKnownProvider()
     s = Source(source_type=SourceType.WELL_KNOWN, url="https://example.com")
-    with pytest.raises(ValueError, match="[Pp]ath traversal"):
+    with pytest.raises(ValueError, match="[Pp]ath.*(escape|traversal)"):
         p.fetch(s, tmp_path)
 
 

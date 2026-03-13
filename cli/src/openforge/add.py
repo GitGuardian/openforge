@@ -276,13 +276,17 @@ def add_command(
         skills = canonical_skills
 
         if skills:
-            installed_agents = install_to_all_agents(
-                skills=skills,
-                project_dir=project_dir,
-                content_type=ContentType.SKILL,
-                is_global=is_global,
-                target_agent=agent,
-            )
+            try:
+                installed_agents = install_to_all_agents(
+                    skills=skills,
+                    project_dir=project_dir,
+                    content_type=ContentType.SKILL,
+                    is_global=is_global,
+                    target_agent=agent,
+                )
+            except ValueError as exc:
+                _console.print(f"[red]{exc}[/red]")
+                raise typer.Exit(code=1) from None
 
         # Install plugin capabilities
         if detected.content_type is ContentType.PLUGIN and detected.plugins:
