@@ -46,4 +46,30 @@ describe("checkRateLimit", () => {
     const key = "rate-test-zero-limit";
     expect(checkRateLimit(key, 0, 60_000)).toBe(false);
   });
+
+  test("evicts expired entries to prevent unbounded growth", async () => {
+    const windowMs = 50; // 50ms window for fast testing
+    // Fill multiple keys
+    for (let i = 0; i < 150; i++) {
+      checkRateLimit(`eviction-test-${i}`, 10, windowMs);
+    }
+
+    // Wait for window to expire
+    await new Promise((resolve) => setTimeout(resolve, windowMs + 20));
+
+    // Trigger more calls to force eviction
+    for (let i = 0; i < 150; i++) {
+      checkRateLimit(`eviction-trigger-${i}`, 10, windowMs);
+    }
+
+    // The store should have evicted the expired keys
+    // We can verify by checking that the old keys are no longer rate-limited
+    // (their timestamps were cleaned up)
+    expect(checkRateLimit("eviction-test-0", 1, windowMs)).toBe(true);
+
+    // Verify store size is bounded — exported for testing
+    const { _getStoreSize } = await import("../../src/lib/rate-limit");
+    // Should be around 150 (new trigger keys) + 1 (just added), not 300+
+    expect(_getStoreSize()).toBeLessThan(200);
+  });
 });
