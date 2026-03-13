@@ -45,6 +45,12 @@ export interface IndexResult {
 // ---------------------------------------------------------------------------
 
 export async function cloneRepo(url: string): Promise<string> {
+  // Defense-in-depth: reject non-HTTPS URLs to prevent command injection via
+  // git's ext:: protocol, argument injection via leading dash, and local file access.
+  if (!url.startsWith("https://")) {
+    throw new Error(`Refused to clone: URL must start with https:// (got ${url})`);
+  }
+
   const tmpDir = await mkdtemp(join(tmpdir(), "openforge-index-"));
   console.log(`Cloning ${url} into ${tmpDir}...`);
 

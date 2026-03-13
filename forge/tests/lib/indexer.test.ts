@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 // Import the indexer functions directly (no mocking needed for pure functions)
 // ---------------------------------------------------------------------------
 
-const { getHeadSha, findFiles, parseFrontmatter, parsePlugin, parseMarketplace } =
+const { getHeadSha, findFiles, parseFrontmatter, parsePlugin, parseMarketplace, cloneRepo } =
   await import("../../src/lib/indexer");
 
 // ---------------------------------------------------------------------------
@@ -273,5 +273,35 @@ describe("parseMarketplace", () => {
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: cloneRepo URL validation
+// ---------------------------------------------------------------------------
+
+describe("cloneRepo", () => {
+  test("rejects ext:: protocol URLs (command injection)", async () => {
+    await expect(cloneRepo("ext::sh -c evil")).rejects.toThrow(/https:\/\//i);
+  });
+
+  test("rejects URLs starting with dash (argument injection)", async () => {
+    await expect(cloneRepo("-c evil")).rejects.toThrow(/https:\/\//i);
+  });
+
+  test("rejects file:// URLs", async () => {
+    await expect(cloneRepo("file:///etc/passwd")).rejects.toThrow(/https:\/\//i);
+  });
+
+  test("rejects ssh:// URLs", async () => {
+    await expect(cloneRepo("ssh://git@github.com/owner/repo")).rejects.toThrow(/https:\/\//i);
+  });
+
+  test("rejects git:// URLs", async () => {
+    await expect(cloneRepo("git://github.com/owner/repo")).rejects.toThrow(/https:\/\//i);
+  });
+
+  test("rejects http:// URLs (must be https)", async () => {
+    await expect(cloneRepo("http://github.com/owner/repo")).rejects.toThrow(/https:\/\//i);
   });
 });
