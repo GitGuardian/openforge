@@ -518,7 +518,9 @@ pageRoutes.get("/plugins/:name", async (c) => {
           <div class="mb-8">
             <h2 class="text-lg font-semibold text-gray-900 mb-3">README</h2>
             <div class="prose max-w-none bg-white border rounded-lg p-6">
-              ${raw(plugin.readmeHtml)}
+              ${ /* SECURITY: readmeHtml is sanitized via DOMPurify at index time (lib/markdown.ts).
+                  If new write paths are added, they MUST sanitize before storing. */
+                raw(plugin.readmeHtml)}
             </div>
           </div>
         `
