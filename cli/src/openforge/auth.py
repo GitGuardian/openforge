@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
 import typer
 from platformdirs import user_config_dir
 from rich.console import Console
@@ -140,6 +141,9 @@ def login_command() -> None:
         result = _sign_in_with_password(email, password, supabase_url)
     except ValueError as e:
         _console.print(f"[red]Login failed: {e}[/red]")
+        raise typer.Exit(code=1) from None
+    except httpx.TransportError:
+        _console.print("[red]Could not connect. Check your network and try again.[/red]")
         raise typer.Exit(code=1) from None
 
     _store_token(

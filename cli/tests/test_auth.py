@@ -334,6 +334,26 @@ def test_login_uses_supabase_url_not_forge_url(tmp_path: Path) -> None:
         mock_sign_in.assert_called_once_with("a@b.com", "pass", "http://localhost:54321")
 
 
+def test_login_handles_network_error(tmp_path: Path) -> None:
+    """Network error during login should show friendly message, not traceback."""
+    import httpx
+
+    app = _make_auth_app()
+    token_dir = tmp_path / "config"
+
+    with (
+        patch("openforge.auth._get_token_dir", return_value=token_dir),
+        patch(
+            "openforge.auth._sign_in_with_password",
+            side_effect=httpx.ConnectError("Connection refused"),
+        ),
+    ):
+        result = runner.invoke(app, ["auth", "login"], input="a@b.com\npass\n")
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        assert "connect" in result.output.lower() or "network" in result.output.lower()
+
+
 def test_token_file_has_restrictive_permissions(tmp_path: Path) -> None:
     """Token file is written with 600 permissions."""
     import os

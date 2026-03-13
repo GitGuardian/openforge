@@ -140,6 +140,25 @@ def test_publish_handles_duplicate_submission() -> None:
         assert "already" in result.output.lower()
 
 
+def test_publish_handles_timeout_error() -> None:
+    """Timeout should show user-friendly message, not traceback."""
+    import httpx
+
+    app = _make_publish_app()
+
+    mock_client = MagicMock()
+    mock_client.submit.side_effect = httpx.ReadTimeout("read timed out")
+
+    with (
+        patch("openforge.publish.get_auth_token", return_value="token"),
+        patch("openforge.publish.ForgeClient", return_value=mock_client),
+    ):
+        result = runner.invoke(app, ["https://github.com/owner/repo"])
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        assert "connect" in result.output.lower() or "network" in result.output.lower()
+
+
 def test_publish_accepts_gitlab_url() -> None:
     """Publish accepts GitLab URLs."""
     app = _make_publish_app()

@@ -41,7 +41,7 @@ def publish_command(
     except ForgeAPIError as e:
         _console.print(f"[red]Submission failed: {e}[/red]")
         raise typer.Exit(code=1) from None
-    except httpx.ConnectError:
+    except httpx.TransportError:
         _console.print("[red]Could not connect to The Forge. Check your network.[/red]")
         raise typer.Exit(code=1) from None
 
